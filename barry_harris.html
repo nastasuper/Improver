@@ -510,6 +510,40 @@ body.is-playing .top-controls {
 body.is-playing #output {
   margin-top: 0;
 }
+
+/* ── FLOATING PLAY/STOP BAR ── */
+.float-controls {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: #1a1a1a;
+  border: 1px solid #c8a44a;
+  border-radius: 40px;
+  padding: 8px 16px;
+  gap: 12px;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+body.is-playing .float-controls {
+  display: flex;
+}
+.float-btn {
+  background: none;
+  border: none;
+  color: #c8a44a;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 50%;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.float-btn:hover { background: #2a2a2a; }
+.float-btn.stop-btn { color: #e8e8e8; }
+
 </style>
 </head>
 <body>
@@ -2677,7 +2711,14 @@ function exportPDF() {
 <body>
 <h1>Barry Harris — Scale System</h1>
 <h2>${title}</h2>
-<table>${tableRows}</table></body>
+<table>${tableRows}</table>
+<!-- Floating Play/Stop -->
+<div class="float-controls" id="float-controls">
+  <button class="float-btn" onclick="playAll()" title="Play">▶</button>
+  <button class="float-btn stop-btn" onclick="stopAll()" title="Stop">■</button>
+</div>
+
+</body>
 </html>`;
 
   // Show lead sheet in a full-screen overlay (works on all browsers including iOS)
