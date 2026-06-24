@@ -2677,21 +2677,7 @@ function exportPDF() {
 <h1>Barry Harris — Scale System</h1>
 <h2>${title}</h2>
 <table>${tableRows}</table>
-
-// ── Module 2: auto-load progression from URL ──
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  const prog = params.get('prog');
-  if (prog) {
-    window.addEventListener('DOMContentLoaded', () => {
-      const input = document.getElementById('input');
-      if (input) {
-        input.value = decodeURIComponent(prog);
-        setTimeout(() => analyze(), 100);
-      }
-    });
-  }
-})();</body>
+</body>
 </html>`;
 
   // Show lead sheet in a full-screen overlay (works on all browsers including iOS)
@@ -3017,19 +3003,32 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });</script>
 
-// ── Module 2: auto-load progression from URL ──
+<script>
+// ── Module 2: auto-load progression from URL or localStorage ──
 (function() {
   const params = new URLSearchParams(window.location.search);
   const prog = params.get('prog');
-  if (prog) {
-    window.addEventListener('DOMContentLoaded', () => {
-      const input = document.getElementById('input');
-      if (input) {
-        input.value = decodeURIComponent(prog);
-        setTimeout(() => analyze(), 100);
-      }
-    });
-  }
+  window.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('input');
+    if (!input) return;
+    if (prog) {
+      // From Module 1 via URL
+      const decoded = decodeURIComponent(prog);
+      input.value = decoded;
+      try { localStorage.setItem('improver_last_prog', decoded); } catch(e) {}
+      setTimeout(() => analyze(), 100);
+    } else {
+      // Load last used progression from localStorage
+      try {
+        const last = localStorage.getItem('improver_last_prog');
+        if (last) {
+          input.value = last;
+          setTimeout(() => analyze(), 100);
+        }
+      } catch(e) {}
+    }
+  });
 })();
+</script>
 </body>
 </html>
