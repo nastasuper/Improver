@@ -1,0 +1,3035 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barry Harris — Scale System</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #111;
+    --surface: #1a1a1a;
+    --border: #2e2e2e;
+    --text: #e8e8e8;
+    --dim: #666;
+    --amber: #c8a44a;
+    --green: #5a9e6f;
+    --red: #c05a5a;
+    --blue: #5a7ec0;
+    --mono: 'Courier New', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 32px 20px;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: normal;
+    color: var(--amber);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header p {
+    color: var(--dim);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .input-area { margin-bottom: 24px; }
+
+  label {
+    display: block;
+    color: var(--dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 12px 14px;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    border-radius: 2px;
+  }
+
+  textarea:focus { border-color: var(--amber); }
+
+  .hint { color: var(--dim); font-size: 11px; margin-top: 6px; }
+  .hint span { color: var(--amber); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+  button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 18px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  button:hover { border-color: var(--amber); color: var(--amber); }
+  button.primary { border-color: var(--amber); color: var(--amber); }
+  button.primary:hover { background: var(--amber); color: #111; }
+
+  .examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .ex-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    color: var(--dim);
+    border-color: #2e2e2e;
+  }
+
+  .ex-btn:hover { color: var(--text); border-color: var(--dim); }
+
+  #output { margin-top: 32px; }
+
+  /* ── condensed output ── */
+  .bar-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: start;
+    gap: 0 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .bar-row:last-child { border-bottom: none; }
+
+  .bar-num {
+    color: var(--dim);
+    font-size: 11px;
+    padding-top: 2px;
+    text-align: right;
+  }
+
+  .bar-main {}
+
+  .bar-chord-name {
+    font-size: 15px;
+    color: var(--amber);
+    font-weight: bold;
+    line-height: 1.3;
+  }
+
+  .bar-meta {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 1px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .meta-scale { color: var(--green); letter-spacing: 0.04em; }
+  .meta-dir-up { color: var(--green); }
+  .meta-dir-down { color: var(--red); }
+  .meta-dir-split { color: var(--blue); }
+
+  .bar-notes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    margin-top: 6px;
+  }
+
+  .note {
+    display: inline-block;
+    padding: 3px 7px;
+    font-size: 13px;
+    color: var(--text);
+    border: 1px solid #2a2a2a;
+    background: #161616;
+    margin: 1px;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .note.active { background: #2a2000; border-color: var(--amber); color: var(--amber); }
+  .note.chromatic { color: var(--red); border-color: #3a2020; background: #1e1616; }
+  .note.root { color: var(--amber); border-color: #3a2d1a; background: #1e1a10; font-weight: bold; }
+
+  .arrow { color: var(--dim); font-size: 11px; margin: 0 2px; align-self: center; }
+
+  /* play button per bar */
+  .btn-play-bar {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--dim);
+    border-color: #2e2e2e;
+    margin-top: 2px;
+  }
+  .btn-play-bar:hover { color: var(--amber); border-color: var(--amber); }
+  .btn-play-bar.playing { color: var(--amber); border-color: var(--amber); }
+
+  /* audio controls bar */
+  .audio-bar {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+  .audio-bar.visible { display: flex; }
+
+  .audio-label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .bpm-display { color: var(--amber); font-size: 16px; font-weight: bold; min-width: 36px; text-align: center; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100px;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+  }
+
+  .swing-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--dim);
+    user-select: none;
+  }
+  .swing-toggle input { display: none; }
+  .swing-pip {
+    width: 28px; height: 14px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .swing-pip::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: left 0.15s, background 0.15s;
+  }
+  .swing-toggle input:checked + .swing-pip { border-color: var(--amber); }
+  .swing-toggle input:checked + .swing-pip::after { left: 16px; background: var(--amber); }
+
+  .btn-play-all {
+    border-color: var(--amber);
+    color: var(--amber);
+    padding: 5px 14px;
+    font-size: 12px;
+  }
+  .btn-play-all:hover { background: var(--amber); color: #111; }
+  .btn-play-all.playing { background: #2a1800; }
+
+  .error { color: var(--red); font-size: 13px; padding: 10px 0; }
+  .empty { color: var(--dim); font-size: 13px; padding: 20px 0; text-align: center; }
+
+  .transpose-area {
+    margin-bottom: 24px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: none;
+  }
+
+  .transpose-area.visible { display: block; }
+
+  .transpose-label {
+    color: var(--dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  .transpose-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .semitone-display {
+    font-size: 20px;
+    color: var(--amber);
+    min-width: 48px;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  .semitone-label {
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  .transpose-preview {
+    margin-top: 12px;
+    color: var(--dim);
+    font-size: 12px;
+    min-height: 18px;
+  }
+
+  .transpose-preview .prog {
+    color: var(--text);
+  }
+
+  .btn-step {
+    padding: 6px 14px;
+    font-size: 16px;
+  }
+
+  /* ── sticky top controls bar ── */
+  .top-controls {
+    display: none;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #0e0e0e;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 0;
+    margin-bottom: 20px;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .top-controls.visible { display: flex; }
+
+  .top-ctl-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .top-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* view toggle */
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .view-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    border: none;
+    border-radius: 0;
+    color: var(--dim);
+    background: none;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: background 0.15s, color 0.15s;
+  }
+  .view-btn:hover { color: var(--text); border-color: transparent; }
+  .view-btn.active { background: var(--amber); color: #111; }
+  .view-btn + .view-btn { border-left: 1px solid var(--border); }
+
+  /* bar number — prominent */
+  .bar-num {
+    font-size: 15px;
+    font-weight: bold;
+    line-height: 1;
+    min-width: 36px;
+    text-align: center;
+    padding-top: 3px;
+  }
+
+  .bar-num span {
+    display: inline-block;
+    background: #000;
+    color: var(--text);
+    border: 1px solid #444;
+    padding: 3px 8px;
+    border-radius: 2px;
+    font-size: 13px;
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .audio-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+  }
+  .context-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .context-label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .context-auto {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .context-auto input { display: none; }
+  .context-pip {
+    width: 24px; height: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .context-pip::after {
+    content: '';
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: left 0.15s, background 0.15s;
+  }
+  .context-auto input:checked + .context-pip { border-color: var(--amber); }
+  .context-auto input:checked + .context-pip::after { left: 13px; background: var(--amber); }
+
+  select.ctx-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  select.ctx-select:disabled { opacity: 0.35; cursor: default; }
+
+  .ctx-detected {
+    font-size: 11px;
+    color: var(--amber);
+    font-style: italic;
+  }
+  .ctx-detected.badge {
+    font-style: normal;
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+    border-radius: 2px;
+    padding: 2px 7px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* passing-tag already defined */
+
+  /* full view extra info */
+  .bar-full-info {
+    display: none;
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #222;
+    line-height: 1.7;
+  }
+  .full-view .bar-full-info { display: block; }
+  .full-view .bar-row { padding: 14px 0; }
+
+  @media (max-width: 480px) {
+    body { font-size: 13px; padding: 20px 14px; }
+    .bar-chord-name { font-size: 14px; }
+    .bar-num { font-size: 18px; }
+  }
+
+/* ── PLAY MODE ── */
+body.is-playing .view-toggle,
+body.is-playing .hint,
+body.is-playing .examples,
+body.is-playing .context-row,
+body.is-playing #transpose-area,
+body.is-playing .textarea-row {
+  display: none !important;
+}
+body.is-playing .top-controls {
+  padding: 6px 14px;
+}
+body.is-playing #output {
+  margin-top: 0;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Sticky top controls: view toggle only — hidden until first analysis -->
+  <div class="top-controls" id="top-controls">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <button onclick="window.history.back()" style="font-size:11px;padding:4px 10px;color:var(--dim);border-color:var(--border);">← Módulo 1</button>
+      <span style="font-size:11px;color:var(--amber);font-weight:600;letter-spacing:0.08em;">MÓDULO 2 — Patrón alternativo</span>
+    </div>
+    <div class="view-toggle">
+      <button class="view-btn active" id="btn-condensed" onclick="setView('condensed')">Condensado</button>
+      <button class="view-btn" id="btn-full" onclick="setView('full')">Completo</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>Barry Harris — Scale System</h1>
+    <p>Convertí progresiones de acordes en campos escalares con dirección</p>
+  </header>
+
+  <div class="input-area">
+    <label>Progresión de acordes — usá <span style="color:var(--amber)">/</span> para separar compases, espacio entre acordes del mismo compás</label>
+    <div class="textarea-row"><textarea id="input" placeholder="Dm7b5 G7 / Cm7  o  Cmaj7 / Am7 / Dm7 G7 / C" spellcheck="false"></textarea>
+    <div class="hint">
+      Tipos: <span>Cmaj7 C6 Cm7 C7 Cm7b5 Cdim F#7 Bbmaj7</span> — Separar compases con <span>/ &nbsp;o&nbsp; |</span>
+    </div>
+    <div class="examples">
+      <span style="color:var(--dim);font-size:11px;align-self:center;">Ejemplos:</span>
+      <button class="ex-btn" onclick="loadEx('Dm7b5 G7 / Cm7')">ii∅–V–i</button>
+      <button class="ex-btn" onclick="loadEx('Cmaj7 / Am7 / Dm7 G7 / C')">I–VI–ii–V–I</button>
+      <button class="ex-btn" onclick="loadEx('Cmaj7 / Fmaj7 / G7 / Cmaj7')">I–IV–V–I</button>
+      <button class="ex-btn" onclick="loadEx('G7 / Cmaj7')">V–I</button>
+      <button class="ex-btn" onclick="loadEx('Fmaj7 / Fm7 Bb7 / Ebmaj7')">ii–V–I Eb</button>
+      <button class="ex-btn" onclick="loadEx('G7 / C7 / F7 / Bb7')">Dos dominantes</button>
+    </div>
+    <div class="context-row">
+      <span class="context-label">Contexto</span>
+      <label class="context-auto">
+        <input type="checkbox" id="ctx-auto" checked onchange="toggleCtxAuto()">
+        <span class="context-pip"></span>
+        Auto
+      </label>
+      <select class="ctx-select" id="ctx-select" disabled onchange="analyze()">
+        <option value="general">General</option>
+        <option value="blues">Blues</option>
+        <option value="jazzblues">Jazz Blues</option>
+        <option value="bluesmenor">Blues Menor</option>
+        <option value="rhythmchanges">Rhythm Changes</option>
+      </select>
+      <span class="ctx-detected" id="ctx-detected"></span>
+    </div>
+    <div class="btn-row">
+      <button class="primary" onclick="analyze()">▶ Analizar</button>
+      <button onclick="clearAll()">Limpiar</button>
+      <button id="btn-transpose" onclick="toggleTranspose()" style="display:none;">⇅ Transportar</button>
+    </div>
+
+    <!-- Audio & playback controls -->
+    <div class="audio-controls-row">
+      <div class="top-ctl-group">
+        <span class="audio-label">BPM</span>
+        <input type="range" id="bpm-slider" min="40" max="240" value="140" oninput="updateBpm(this.value)">
+        <span class="bpm-display" id="bpm-display">140</span>
+      </div>
+      <div class="top-divider"></div>
+      <label class="swing-toggle" title="Swing / Recto">
+        <input type="checkbox" id="swing-chk" checked>
+        <span class="swing-pip"></span>
+        <span id="swing-label">Swing</span>
+      </label>
+      <div class="top-divider"></div>
+      <label class="swing-toggle" title="Metrónomo">
+        <input type="checkbox" id="metro-chk" checked>
+        <span class="swing-pip"></span>
+        <span>Metro</span>
+      </label>
+      <div class="top-divider"></div>
+      <label class="swing-toggle" title="Sextificar Imaj7">
+        <input type="checkbox" id="sextify-chk">
+        <span class="swing-pip"></span>
+        <span>Sextificar</span>
+      </label>
+      <div class="top-divider"></div>
+      <label class="swing-toggle" title="Merge Scales">
+        <input type="checkbox" id="merge-chk">
+        <span class="swing-pip"></span>
+        <span>Merge</span>
+      </label>
+      <div class="top-divider"></div>
+      <label class="swing-toggle" title="Repetir en loop">
+        <input type="checkbox" id="loop-chk">
+        <span class="swing-pip"></span>
+        <span>Loop</span>
+      </label>
+      <div class="top-divider"></div>
+      <button onclick="exportPDF()" style="font-size:11px;padding:4px 12px;color:var(--dim);border-color:var(--border);">⬇ PDF</button>
+
+    </div>
+
+    <!-- Play/Stop controls -->
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn-play-all primary" id="btn-play-all" onclick="playAll()">▶ Play</button>
+      <button onclick="stopAll()" style="font-size:13px;padding:8px 18px;">■ Stop</button>
+      <button onclick="showPentagrama()" style="font-size:13px;padding:8px 18px;">♩ Pentagrama</button>
+    </div>
+  </div>
+
+  <div class="transpose-area" id="transpose-area">
+    <div class="transpose-label">Transportar progresión</div>
+    <div class="transpose-controls">
+      <button class="btn-step" onclick="stepTranspose(-1)">−</button>
+      <div>
+        <div class="semitone-display" id="semitone-val">0</div>
+        <div class="semitone-label" style="text-align:center">semitonos</div>
+      </div>
+      <button class="btn-step" onclick="stepTranspose(+1)">+</button>
+      <div style="margin-left:8px;">
+        <div class="semitone-label">Destino</div>
+        <select id="target-key" onchange="setTargetKey(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;border-radius:2px;outline:none;cursor:pointer;">
+          <option value="">— tono —</option>
+          <option>C</option><option>Db</option><option>D</option><option>Eb</option>
+          <option>E</option><option>F</option><option>F#</option><option>G</option>
+          <option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+        </select>
+      </div>
+      <button class="primary" onclick="applyTranspose()" style="margin-left:8px;">Aplicar y analizar</button>
+    </div>
+    <div class="transpose-preview" id="transpose-preview"></div>
+  </div>
+
+  <div id="output"></div>
+
+</div>
+
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="background:#c00;color:#fff;padding:12px;font-family:monospace;font-size:13px;position:fixed;top:0;left:0;right:0;z-index:9999">' +
+    '⚠ ' + msg + ' — línea ' + line + (err ? '<br>' + err.stack : '') + '</div>');
+};
+</script>
+
+<script>
+const NOTES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const ENHARMONICS = {
+  'Db':'C#','Eb':'D#','Fb':'E','Gb':'F#','Ab':'G#','Bb':'A#','Cb':'B',
+  'E#':'F','B#':'C'
+};
+
+let useFlats = false;
+
+// ─── CONTEXT ──────────────────────────────────────────────────────────────────
+
+// context: 'general' | 'blues' | 'jazzblues' | 'bluesmenor' | 'rhythmchanges'
+let currentContext = 'general';
+
+function toggleCtxAuto() {
+  const chk = document.getElementById('ctx-auto');
+  const sel = document.getElementById('ctx-select');
+  sel.disabled = chk.checked;
+  if (!chk.checked) document.getElementById('ctx-detected').textContent = '';
+}
+
+// Auto-detect context from parsed bars
+// Returns one of the context strings
+function detectContext(bars) {
+  const allChords = bars.flatMap(b => b.chords);
+  const n = allChords.length;
+  if (!n) return 'general';
+
+  const domCount  = allChords.filter(c => c.type === 'dominant').length;
+  const minorCount= allChords.filter(c => c.type === 'minor').length;
+  const majorCount= allChords.filter(c => c.type === 'major' || c.type === 'major6').length;
+  const halfDimCount = allChords.filter(c => c.type === 'halfDim').length;
+  const domRatio  = domCount / n;
+
+  // Rhythm Changes: many major/dom, typically 8-32 bars, strong I-VI-ii-V pattern
+  // Signature: first chord major, high major+dom mix, no half-dim
+  if (majorCount >= 1 && domRatio >= 0.4 && halfDimCount === 0 && n >= 6) {
+    // Check for classic I-VI-ii-V turnaround in first 4 chords
+    const first4 = allChords.slice(0, 4);
+    if (first4.length === 4) {
+      const types = first4.map(c => c.type);
+      if ((types[0] === 'major' || types[0] === 'major6') &&
+          (types[1] === 'minor' || types[1] === 'dominant') &&
+          types[2] === 'minor' && types[3] === 'dominant') {
+        return 'rhythmchanges';
+      }
+    }
+  }
+
+  // Blues Menor: minor tonic, mix of minor + dominant, possible half-dim
+  if (minorCount >= 1 && domCount >= 1 && majorCount === 0) {
+    if (halfDimCount > 0 || minorCount > domCount) return 'bluesmenor';
+  }
+
+  // Blues: predominantly dominant (>= 60%), few or no minor/major
+  if (domRatio >= 0.6 && minorCount <= 1) {
+    // Jazz Blues: has some ii-V movement (minor chords present)
+    if (minorCount >= 1) return 'jazzblues';
+    return 'blues';
+  }
+
+  // Jazz Blues: dominant + minor mix with some major
+  if (domRatio >= 0.3 && minorCount >= 1 && majorCount >= 1) return 'jazzblues';
+
+  return 'general';
+}
+
+// Should we apply sixthDim for this chord given the current context?
+// - Toggle "Sextificar" must be ON, OR chord is explicitly major6 (C6, Cmaj6)
+// - Blues menor: sextify only im (tonic minor)
+// - Blues/jazzblues/rhythmchanges: never sextify
+function allowSixthDim(c, isFirstBar, isTonicMinor) {
+  const sextifyOn = document.getElementById('sextify-chk') 
+    ? document.getElementById('sextify-chk').checked 
+    : false;
+  const isExplicit6 = c.type === 'major6'; // user wrote C6 or Cmaj6
+
+  // Blues menor: sextify only im
+  if (currentContext === 'bluesmenor') return isTonicMinor && (sextifyOn || isExplicit6);
+  // Blues/rhythmchanges: never
+  if (currentContext !== 'general') return false;
+  // General: only if toggle ON or explicit 6th chord
+  return sextifyOn || isExplicit6;
+}
+
+// ─── RHYTHM CHANGES ───────────────────────────────────────────────────────────
+
+// Global tonic for rhythm changes (set during analyze())
+let rcTonicIdx = -1;
+let rcTonicFlat = true;
+let progressionFirstChordIdx = -1; // index of first chord of whole progression
+
+// Find the tonic: first maj7/major6 chord in the progression
+function findRCTonic(bars) {
+  for (const bar of bars) {
+    for (const c of bar.chords) {
+      if (c.type === 'major' || c.type === 'major6') {
+        return { idx: c.idx, flat: c.rootIsFlat, root: c.root };
+      }
+    }
+  }
+  // Fallback: first chord whatever it is
+  const first = bars[0] && bars[0].chords[0];
+  return first ? { idx: first.idx, flat: first.rootIsFlat, root: first.root } : null;
+}
+
+// Detect if a bar matches the chromatic pattern of RC compases 5-6
+// Ascending:  I → III → IV → #IV → (I/5)  e.g. Bb D Eb E Bb
+// Descending: I → bVII → VI → bVI → (#V)  e.g. Bb Ab G Gb F#
+function detectRCChromBar(bar, tonicIdx) {
+  let chords = bar.chords;
+  if (chords.length < 2) return null;
+
+  // Strip last chord if it's tonic (I or I/5 endings like Bb or Bb/F)
+  const lastIntv = ((chords[chords.length-1].idx - tonicIdx) + 12) % 12;
+  if (chords.length > 2 && (lastIntv === 0 || lastIntv === 7)) {
+    chords = chords.slice(0, -1);
+  }
+
+  const roots = chords.map(c => ((c.idx - tonicIdx) + 12) % 12);
+
+  // Descending: bVII(10), VI(9), bVI(8) present, steps downward 1-2 semitones
+  const hasDescChrom = roots.some(r => r === 10 || r === 9 || r === 8);
+  if (hasDescChrom) {
+    let ok = true;
+    for (let i = 1; i < chords.length; i++) {
+      const step = ((chords[i-1].idx - chords[i].idx) + 12) % 12;
+      if (step > 2) { ok = false; break; }
+    }
+    if (ok) return 'rc-chrom-desc';
+  }
+
+  // Ascending: starts on I (interval 0), includes III(4) IV(5) #IV(6)
+  const startsOnTonic = roots[0] === 0;
+  const hasAscChrom = roots.some(r => r === 4 || r === 5 || r === 6);
+  if (startsOnTonic && hasAscChrom) {
+    let ok = true;
+    for (let i = 2; i < chords.length; i++) {
+      const step = ((chords[i].idx - chords[i-1].idx) + 12) % 12;
+      const stepDown = ((chords[i-1].idx - chords[i].idx) + 12) % 12;
+      if (Math.min(step, stepDown) > 2) { ok = false; break; }
+    }
+    if (ok) return 'rc-chrom-asc';
+  }
+
+  return null;
+}
+
+// Detect if a bar is part of the RC bridge:
+// Bridge bars have exactly ONE dominant chord per bar (repeated 2 bars each)
+// roots follow cycle-of-fifths: III7 / VI7 / II7 / V7
+// Must be single-chord bar to distinguish from Parte A ii-V pairs
+function isRCBridgeBar(bar, tonicIdx) {
+  const chords = bar.chords;
+  // Bridge = single dominant chord only
+  if (chords.length === 1 && chords[0].type === 'dominant') {
+    const bridgeIntervals = new Set([4, 9, 2, 7]);
+    const intv = ((chords[0].idx - tonicIdx) + 12) % 12;
+    if (bridgeIntervals.has(intv)) return true;
+  }
+  return false;
+}
+
+// Build result for a RC chromatic bar (c5-6 type)
+// Always: I mixo ascending + IV mixo ascending
+function buildRCChromResult(bar, tonicIdx, tonicFlat, chromType) {
+  // I mixo = mixolydian of tonic
+  // IV mixo = mixolydian of tonic + 5 semitones
+  const ivIdx = (tonicIdx + 5) % 12;
+  const tonicNote = noteInContext(tonicIdx, tonicFlat);
+  const ivNote = noteInContext(ivIdx, tonicFlat);
+
+  const chordNames = bar.chords.map(c => c.raw).join(' ');
+  const dirLabel = chromType === 'rc-chrom-desc' ? 'descendente' : 'ascendente';
+
+  return [
+    {
+      original: chordNames,
+      scaleName: `${tonicNote} Mixolidia (RC c.5-6 ${dirLabel})`,
+      scaleNotes: mixolydianScale(tonicIdx, tonicFlat),
+      scaleType: '7',
+      chordRoot: tonicNote,
+      chordIdx: tonicIdx,
+      chromatic: false,
+      unifiedRelation: 'rc-chrom',
+      unifiedLabel: `RC c.5-6 ${dirLabel} → ${tonicNote} Mixo + ${ivNote} Mixo`
+    },
+    {
+      original: `(${ivNote} Mixo)`,
+      scaleName: `${ivNote} Mixolidia (RC c.5-6 ${dirLabel})`,
+      scaleNotes: mixolydianScale(ivIdx, tonicFlat),
+      scaleType: '7',
+      chordRoot: ivNote,
+      chordIdx: ivIdx,
+      chromatic: false,
+      unifiedRelation: 'rc-chrom',
+      unifiedLabel: `RC c.5-6 → ${ivNote} Mixo`
+    }
+  ];
+}
+
+// Build result for c6 single tonic chord — IV mixo only
+function buildRCC6Result(bar, tonicIdx, tonicFlat) {
+  const ivIdx = (tonicIdx + 5) % 12;
+  const ivNote = noteForRoot(ivIdx, ivIdx);
+  return [{
+    original: bar.chords[0].raw,
+    scaleName: `${ivNote} Mixolidia (RC c.6)`,
+    scaleNotes: mixolydianScale(ivIdx, tonicFlat),
+    scaleType: '7',
+    chordRoot: ivNote,
+    chordIdx: ivIdx,
+    chromatic: false,
+    unifiedRelation: 'rc-c6',
+    unifiedLabel: `RC c.6 → ${ivNote} Mixo`
+  }];
+}
+function buildRCbVIResult(chord, tonicIdx, tonicFlat) {
+  const tonicNote = noteInContext(tonicIdx, tonicFlat);
+  return {
+    original: `${chord.raw}`,
+    scaleName: `${tonicNote} Mixolidia (bVI sub → I mixo)`,
+    scaleNotes: mixolydianScale(tonicIdx, tonicFlat),
+    scaleType: '7',
+    chordRoot: tonicNote,
+    chordIdx: tonicIdx,
+    chromatic: false,
+    unifiedRelation: 'rc-bVI',
+    unifiedLabel: `bVI7 sub → ${tonicNote} Mixo`
+  };
+}
+
+function noteToIdx(n) {
+  if (NOTES_FLAT.includes(n) && n.includes('b')) useFlats = true;
+  const norm = ENHARMONICS[n] || n;
+  return NOTES_SHARP.indexOf(norm);
+}
+
+function idxToNote(i, forceFlat) {
+  const idx = ((i % 12) + 12) % 12;
+  return (forceFlat !== undefined ? forceFlat : useFlats)
+    ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+}
+
+function noteInContext(i, scaleRootOrFlat) {
+  const idx = ((i % 12) + 12) % 12;
+  // If called with a number, treat as scale root index for CoF notation
+  // If called with boolean (legacy), use flat/sharp directly
+  if (typeof scaleRootOrFlat === 'number') {
+    return noteForRoot(idx, scaleRootOrFlat);
+  }
+  // Legacy boolean usage: false = sharp, true/undefined = flat
+  const useFlat = scaleRootOrFlat !== false;
+  return useFlat ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+}
+
+// ─── INPUT SANITIZER ──────────────────────────────────────────────────────────
+
+function sanitizeProgression(raw) {
+  return raw
+    // Normalize symbols
+    .replace(/△|Δ/g, 'maj7')
+    .replace(/ø/g, 'm7b5')
+    .replace(/°/g, 'dim')
+    // Fix common typos
+    .replace(/dism\b/gi, 'dim')
+    .replace(/diim\b/gi, 'dim')
+    // Convert minus sign as minor suffix: C-6 → Cm6, G-7b5 → Gm7b5
+    // Must come before other processing
+    .replace(/([A-G][b#]?)-(\w)/g, '$1m$2')
+    // Split into lines to process each
+    .split('\n')
+    .map(line => {
+      // Remove lines that are clearly titles/headers (no chord pattern)
+      // A chord starts with A-G optionally followed by b or #
+      // If line has no chord pattern at all, drop it
+      const hasChord = /[A-G][b#]?/.test(line) || /^\s*%+\s*$/.test(line);
+      if (!hasChord) return '';
+
+      // Remove common non-chord text: parenthetical labels, colons, digits-only tokens
+      // Remove things like "Forma A", "(16 compases):", "Parte", "Bridge", etc.
+      // Strategy: extract only tokens that look like chords or separators
+      return line
+        // Replace | with /
+        .replace(/\|/g, '/')
+        // Remove em/en dash
+        .replace(/[–—]/g, '/')
+        // Remove anything in parens that doesn't look like a chord quality
+        .replace(/\([^)]*\)/g, (m) => /[A-G]/.test(m) ? m : '')
+        // Remove colon and text before first chord on a line (headers like "Forma A:")
+        .replace(/^[^A-G\/|]+/, '')
+        // Keep only chord-like tokens and separators
+        .split('/')
+        .map(bar => bar.trim()
+          .split(/\s+/)
+          .filter(tok => {
+            if (tok === '%' || tok === '%%') return true; // repeat symbol
+            if (!/^[A-G][b#]?/.test(tok)) return false;
+            // Single letter (A, B, C...) only valid if it's all uppercase or followed by quality
+            if (tok.length === 1) return false; // bare single note = probably part of word
+            if (tok.length === 2 && /^[A-G][b#]$/.test(tok)) return true; // Ab, F#, etc.
+            if (tok.length > 2) {
+              return /^[A-G][b#]?(maj|min|m|dim|aug|sus|add|\d|b|\+|ø|°|△|#)/.test(tok);
+            }
+            return true;
+          })
+          .join(' ')
+        )
+        .filter(bar => bar.length > 0)
+        .join(' / ');
+    })
+    .filter(line => line.length > 0)
+    .join(' / ')
+    // Collapse multiple slashes and spaces
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s+/g, ' ')
+    .replace(/(\/ )+/g, '/ ')
+    .trim();
+}
+
+function sanitizeAndShow() {
+  const input = document.getElementById('input');
+  const original = input.value;
+  const cleaned = sanitizeProgression(original);
+  if (cleaned !== original) {
+    input.value = cleaned;
+    // Brief visual flash to indicate cleaning
+    input.style.borderColor = 'var(--green)';
+    setTimeout(() => { input.style.borderColor = ''; }, 600);
+  }
+}
+
+// For each root (semitone index), whether its scale uses flats or sharps
+// Based on standard key signatures (circle of fifths)
+const KEY_USES_FLAT = {
+  0: false, // C major  (no accidentals)
+  1: true,  // Db (5 flats)
+  2: false, // D  (2 sharps)
+  3: true,  // Eb (3 flats)
+  4: false, // E  (4 sharps)
+  5: true,  // F  (1 flat)
+  6: true,  // Gb (6 flats) — prefer Gb over F#
+  7: false, // G  (1 sharp)
+  8: true,  // Ab (4 flats)
+  9: false, // A  (3 sharps)
+  10: true, // Bb (2 flats)
+  11: false // B  (5 sharps)
+};
+
+// Mixolydian parent keys (one 4th up) — explicit to handle edge cases
+// C mixo → F (flat), G mixo → C, D mixo → G, A mixo → D, E mixo → A
+// B mixo → E, F# mixo → B (sharp), Db mixo → Gb (flat), Ab mixo → Db (flat)
+// Eb mixo → Ab (flat), Bb mixo → Eb (flat), F mixo → Bb (flat)
+const MIXO_PARENT_USES_FLAT = {
+  0: true,  // C mixo → F (flat)
+  1: true,  // Db mixo → Gb (flat)
+  2: false, // D mixo → G (sharp)
+  3: true,  // Eb mixo → Ab (flat)
+  4: false, // E mixo → A (sharp)
+  5: true,  // F mixo → Bb (flat)
+  6: true,  // Gb mixo → Cb/B → use flat
+  7: false, // G mixo → C (neutral → sharp)
+  8: true,  // Ab mixo → Db (flat)
+  9: false, // A mixo → D (sharp)
+  10: true, // Bb mixo → Eb (flat)
+  11: false // B mixo → E (sharp)
+};
+
+// Return the correct note name for semitone idx given the root of the scale
+function noteForRoot(semitoneIdx, scaleRootIdx) {
+  const idx = ((semitoneIdx % 12) + 12) % 12;
+  const useFlatForScale = KEY_USES_FLAT[((scaleRootIdx % 12) + 12) % 12];
+  return useFlatForScale ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+}
+
+// Build a scale using correct notation for the given root
+function scaleWithNotation(steps, rootIdx) {
+  return steps.map(s => noteForRoot(rootIdx + s, rootIdx));
+}
+
+function majorScale(root, flat) {
+  return [0,2,4,5,7,9,11].map(s => noteForRoot(root + s, root));
+}
+
+// Special enharmonic overrides for extreme flat keys in mixolydian
+const MIXO_ENHARMONIC_OVERRIDE = {
+  1:  { 11: 'Cb' },        // Db mixo: B → Cb
+  6:  { 11: 'Cb', 4: 'Fb' } // Gb mixo: B → Cb, E → Fb
+};
+
+function mixolydianScale(root, flat) {
+  const rootNorm = ((root % 12) + 12) % 12;
+  const useFlat = MIXO_PARENT_USES_FLAT[rootNorm];
+  const overrides = MIXO_ENHARMONIC_OVERRIDE[rootNorm] || {};
+  return [0,2,4,5,7,9,10].map(s => {
+    const idx = ((root + s) % 12 + 12) % 12;
+    if (overrides[idx]) return overrides[idx];
+    return useFlat ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+  });
+}
+
+// 6th-diminished: major variant = [0,2,4,5,7,8,9,11], minor = [0,2,3,5,7,8,9,11]
+function sixthDimScale(root, isMinor, flat) {
+  const steps = isMinor ? [0,2,3,5,7,8,9,11] : [0,2,4,5,7,8,9,11];
+  const rootNorm = ((root % 12) + 12) % 12;
+  // For minor: key signature based on relative major (root+3)
+  // but for flat minor keys (Dbm, Abm, Ebm, Bbm, Fm, Cm, Gm) force flat
+  // Simple rule: if root itself is a flat key, use flats for minor too
+  let useFlat;
+  if (isMinor) {
+    // Minor keys that use flats: Am, Dm, Em use sharps; Cm, Gm, Dm borderline
+    // Best approach: use relative major's key sig, but also check root
+    const relMajIdx = (rootNorm + 3) % 12;
+    useFlat = KEY_USES_FLAT[relMajIdx] || KEY_USES_FLAT[rootNorm];
+  } else {
+    useFlat = KEY_USES_FLAT[rootNorm];
+  }
+  return steps.map(s => {
+    const idx = ((root + s) % 12 + 12) % 12;
+    if (isMinor && s === 11) return NOTES_SHARP[idx];
+    return useFlat ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+  });
+}
+
+// m7b5: mixolydian 2 tonos (4 semitonos) abajo → descendente b7→#1, sin la 1 natural
+// 7 notas: b7 b6 b5 b4 b3 b2 #1
+function halfDimScale(root, flat) {
+  const mixRoot = ((root - 4) % 12 + 12) % 12;
+  // b7=10, b6=9, b5=7, b4=5, b3=4, b2=2, #1=1 (skip 0 = natural root)
+  const descSteps = [10, 9, 7, 5, 4, 2, 1];
+  return { notes: descSteps.map(s => noteForRoot(mixRoot + s, mixRoot)), mixRoot };
+}
+
+// ─── CHORD PARSER ─────────────────────────────────────────────────────────────
+
+function parseChord(raw) {
+  raw = raw.trim();
+  if (!raw) return null;
+  const match = raw.match(/^([A-G][b#]?)(.*)/);
+  if (!match) return null;
+  const rootRaw = match[1];
+  const quality = match[2].trim();
+  const rootIsFlat = !rootRaw.includes('#');
+  const norm = ENHARMONICS[rootRaw] || rootRaw;
+  const idx = NOTES_SHARP.indexOf(norm);
+  if (idx === -1) return null;
+
+  const q = quality.toLowerCase().replace(/\s/g,'');
+  let type = '';
+  if (q.includes('m7b5') || q.includes('ø') || q.includes('halfdim') || q.includes('m7♭5')) {
+    type = 'halfDim';
+  } else if (q.includes('dim') && !q.includes('maj')) {
+    type = 'dim';
+  } else if (q === '' || q === 'maj' || q.includes('maj7') || q.includes('△')) {
+    type = 'major';
+  } else if (q === '6' || (q.includes('6') && !q.startsWith('m') && !q.startsWith('min'))) {
+    type = 'major6';
+  } else if ((q.startsWith('m') || q.startsWith('min')) && !q.includes('maj')) {
+    type = 'minor';
+  } else if (q === '7' || q.includes('dom') || (q.includes('7') && !q.includes('maj') && !q.startsWith('m'))) {
+    type = 'dominant';
+  } else {
+    type = 'major';
+  }
+
+  return { raw, root: rootRaw, rootIsFlat, idx, quality, type };
+}
+
+// ─── HARMONIC RELATIONSHIP DETECTION ──────────────────────────────────────────
+
+// Returns true if note index is diatonic to major scale of rootIdx
+function isDiatonic(noteIdx, rootIdx) {
+  const steps = [0,2,4,5,7,9,11];
+  const interval = ((noteIdx - rootIdx) + 12) % 12;
+  return steps.includes(interval);
+}
+
+// Detect relationship between two consecutive chords
+// Returns: 'ii-V' | 'V-I' | 'I-VI' | 'I-IV' | 'two-dominants' | 'unrelated'
+function detectRelationship(a, b) {
+  const intv = ((b.idx - a.idx) + 12) % 12;
+
+  // ii–V: minor → dominant, intervalo de 5ta justa (7 semit) o 4ta (5 semit)
+  if (a.type === 'minor' && b.type === 'dominant') {
+    if (intv === 5 || intv === 7) return 'ii-V';
+  }
+
+  // V–I: dominant resuelve una 4ta arriba (intv=5) o una 5ta abajo (intv=7)
+  if (a.type === 'dominant' && (b.type === 'major' || b.type === 'major6' || b.type === 'minor')) {
+    if (intv === 5 || intv === 7) return 'V-I';
+  }
+
+  // I–VI: major → minor, ambas raíces diatónicas entre sí, VI menor = 9 semitonos arriba del I
+  if ((a.type === 'major' || a.type === 'major6') && b.type === 'minor') {
+    if (intv === 9 && isDiatonic(b.idx, a.idx)) return 'I-VI';
+  }
+
+  // I–IV: major → major, raíz de IV diatónica al I, intervalo de 5 semitonos
+  if ((a.type === 'major' || a.type === 'major6') && (b.type === 'major' || b.type === 'major6')) {
+    if (intv === 5 && isDiatonic(b.idx, a.idx)) return 'I-IV';
+  }
+
+  // Dos dominantes (cualquier intervalo)
+  if (a.type === 'dominant' && b.type === 'dominant') return 'two-dominants';
+
+  return 'unrelated';
+}
+
+// 4 notas: grados 1,2,3,5 de una escala de 7 notas
+function fourNoteField(scaleNotes, rootNote) {
+  // scaleNotes ya rotados desde la raíz
+  // indices 0=1, 1=2, 2=3, 4=5
+  return [scaleNotes[0], scaleNotes[1], scaleNotes[2], scaleNotes[4]].filter(Boolean);
+}
+
+// 2 notas: grados 1 y 3 del acorde
+function twoNoteField(chord, flat) {
+  // 1 y 3 del acorde: para mayor = 0,4; para menor = 0,3; para dominant = 0,4
+  const isMinor = chord.type === 'minor';
+  const third = isMinor ? 3 : 4;
+  return [noteInContext(chord.idx, flat), noteInContext(chord.idx + third, flat)];
+}
+
+// ─── PASSING CHORD DETECTION ─────────────────────────────────────────────────
+
+// Returns true if b is a passing/optional chord relative to a (and optionally nextChord)
+// Three conditions:
+// 1. Chromatic root movement: b's root is 1 semitone from a's root OR from nextChord's root
+// 2. Same functional type: both same broad category (both major-ish, both minor-ish, both dominant)
+// 3. Turnaround I–VI: a is major, b's root is 9 semitones up (VI), regardless of b's quality
+//    (covers Am7, A7, Abmaj7, etc. — the altered VI common in jazz turnarounds)
+function isPassingChord(a, b, nextChord) {
+  const intv = ((b.idx - a.idx) + 12) % 12;
+  const intvDown = ((a.idx - b.idx) + 12) % 12;
+  const chromFromA = intv === 1 || intvDown === 1;
+
+  let chromFromNext = false;
+  if (nextChord) {
+    const toNext = ((nextChord.idx - b.idx) + 12) % 12;
+    const toNextDown = ((b.idx - nextChord.idx) + 12) % 12;
+    chromFromNext = toNext === 1 || toNextDown === 1;
+  }
+
+  // Condition 1: chromatic movement from a or toward next
+  if (chromFromA || chromFromNext) return true;
+
+  // Condition 2: same functional type (no functional contrast)
+  const majorTypes = new Set(['major', 'major6']);
+  const minorTypes = new Set(['minor']);
+  const domTypes   = new Set(['dominant']);
+  const bothDom = domTypes.has(a.type) && domTypes.has(b.type);
+  if (bothDom) {
+    const bToA = ((a.idx - b.idx) + 12) % 12; // b is V of a if bToA === 5 or 7
+    const bIsVofA = bToA === 5 || bToA === 7;
+    if (bIsVofA) return true; // b is V of a → treat as passing, use a's scale
+    // Otherwise: check if it resolves to first chord (handled as last-bar special case)
+    return true; // two dominants without clear relation → passing
+  }
+  const sameFamily =
+    (majorTypes.has(a.type) && majorTypes.has(b.type)) ||
+    (minorTypes.has(a.type) && minorTypes.has(b.type));
+  if (sameFamily) return true;
+
+  // Condition 3: turnaround I–VI (jazz clásico)
+  // a es acorde mayor O dominante (tónica de rhythm changes), b está a 9 semitonos (VI)
+  // cualquier calidad del VI: Am7, A7, Ab7, etc.
+  const tonicTypes = new Set(['major', 'major6', 'dominant']);
+  if (tonicTypes.has(a.type) && intv === 9) return true;
+
+  return false;
+}
+
+function analyzeBar(chords, barIdx, totalBars, nextBarFirstChord) {
+  // Each chord: { raw, root, rootIsFlat, idx, quality, type, barIdx, chordsInBar, posInBar }
+  const n = chords.length;
+  const fl = chords[0].rootIsFlat;
+  const isFirstBar = (barIdx === 0);
+
+  // ── Dominant → #dim cross-bar detection ──
+  if (n === 1 && chords[0].type === 'dominant' && nextBarFirstChord &&
+      nextBarFirstChord.type === 'dim') {
+    const intv = ((nextBarFirstChord.idx - chords[0].idx) + 12) % 12;
+    if (intv === 1) {
+      const c = chords[0];
+      const b7idx = ((c.idx + 10) % 12 + 12) % 12;
+      const sharpOneIdx = ((c.idx + 1) % 12 + 12) % 12;
+      const descSteps = [10, 9, 7, 5, 4, 2, 1];
+      const scaleNotes = descSteps.map(s => noteForRoot(c.idx + s, b7idx));
+      const domRoot = noteForRoot(c.idx, c.idx);
+      return [{
+        original: c.raw,
+        scaleName: `${noteForRoot(b7idx, b7idx)}→${noteForRoot(sharpOneIdx, sharpOneIdx)} (b7→#1)`,
+        scaleNotes,
+        scaleType: 'halfdim',
+        chordRoot: domRoot,
+        chordIdx: c.idx,
+        displayNotes: scaleNotes,
+        chromatic: true,
+        unifiedRelation: 'dom-sharpdim',
+        unifiedLabel: `Dom→#dim: b7→#1 descendente`
+      }];
+    }
+  }
+
+  // ── If this is a single dim and previous was dominant #1 below → reference only ──
+  if (n === 1 && chords[0].type === 'dim' && barIdx > 0) {
+    // We don't have access to previous bar here — handled in allResults loop
+  }
+
+  // ── Rhythm Changes special handling ──
+  if (currentContext === 'rhythmchanges' && rcTonicIdx !== -1) {
+    // bVI7 substitution (single dominant chord at bVI interval)
+    if (n === 1 && chords[0].type === 'dominant') {
+      const intv = ((chords[0].idx - rcTonicIdx) + 12) % 12;
+      if (intv === 6) return [buildRCbVIResult(chords[0], rcTonicIdx, rcTonicFlat)];
+    }
+
+    // Bridge bar: single or double dominant on III/VI/II/V
+    if (isRCBridgeBar({ chords }, rcTonicIdx)) {
+      return chords.map(c => ({
+        original: c.raw,
+        scaleName: `${noteInContext(c.idx, c.rootIsFlat)} Mixolidia (bridge RC)`,
+        scaleNotes: mixolydianScale(c.idx, c.rootIsFlat),
+        scaleType: '7',
+        chordRoot: noteInContext(c.idx, c.rootIsFlat),
+        chordIdx: c.idx,
+        chromatic: false,
+        unifiedRelation: 'rc-bridge',
+        unifiedLabel: 'Bridge RC → Mixolidia propia'
+      }));
+    }
+
+    // Chromatic bar (c5-6 pattern): detect ascending or descending
+    const chromType = detectRCChromBar({ chords }, rcTonicIdx);
+    if (chromType === 'rc-chrom-asc' || chromType === 'rc-chrom-desc') {
+      return buildRCChromResult({ chords }, rcTonicIdx, rcTonicFlat, chromType);
+    }
+  }
+
+  // Single chord
+  if (n === 1) {
+    return [buildSingleChordResult(chords[0], isFirstBar, nextBarFirstChord)];
+  }
+
+  // Two chords: halfDim + dominant → ignore V7, use halfDim scale only
+  // But show both chords in the original field
+  if (n === 2) {
+    const [a, b] = chords;
+    if (a.type === 'halfDim' && b.type === 'dominant') {
+      const result = buildSingleChordResult(a, isFirstBar, null);
+      result.original = `${a.raw} ${b.raw}`;
+      result.unifiedLabel = `${b.raw} ignorado → escala del m7b5`;
+      return [result];
+    }
+    const rel = detectRelationship(a, b);
+
+    if (rel === 'ii-V') {
+      // Unified under dominant's mixolydian
+      const domChord = b;
+      const scaleNotes = mixolydianScale(domChord.idx, domChord.rootIsFlat);
+      const unified = `${a.raw} + ${b.raw}`;
+      const unifiedLabel = 'ii–V unificado → mixolidia del V';
+      return [{
+        original: unified,
+        scaleName: `${domChord.idx ? noteForRoot(domChord.idx, domChord.idx) : ""} Mixolidia`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: noteForRoot(domChord.idx, domChord.idx),
+        chordIdx: domChord.idx,
+        chromatic: false,
+        unifiedRelation: 'ii-V',
+        unifiedLabel
+      }];
+    }
+
+    // Turnaround / acorde de paso
+    if (rel === 'I-VI') {
+      // Unified under I major scale (diatónico: I jónico ≡ VI eólico)
+      const tonicChord = a;
+      const scaleNotes = majorScale(tonicChord.idx, tonicChord.rootIsFlat);
+      const unified = `${a.raw} + ${b.raw}`;
+      return [{
+        original: unified,
+        scaleName: `${tonicChord.idx ? noteForRoot(tonicChord.idx, tonicChord.idx) : ""} Mayor (I–VI diatónico)`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: noteForRoot(tonicChord.idx, tonicChord.idx),
+        chordIdx: tonicChord.idx,
+        chromatic: false,
+        unifiedRelation: 'I-VI',
+        unifiedLabel: 'I–VI diatónico → escala mayor del I'
+      }];
+    }
+
+    if (rel === 'I-IV') {
+      // Unified under I major scale (I jónico ≡ IV lidio mismo campo)
+      const tonicChord = a;
+      const scaleNotes = majorScale(tonicChord.idx, tonicChord.rootIsFlat);
+      const unified = `${a.raw} + ${b.raw}`;
+      return [{
+        original: unified,
+        scaleName: `${tonicChord.idx ? noteForRoot(tonicChord.idx, tonicChord.idx) : ""} Mayor (I–IV diatónico)`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: noteForRoot(tonicChord.idx, tonicChord.idx),
+        chordIdx: tonicChord.idx,
+        chromatic: false,
+        unifiedRelation: 'I-IV',
+        unifiedLabel: 'I–IV diatónico → escala mayor del I'
+      }];
+    }
+
+    // V–I: mixolidia del V (primer acorde dominante)
+    if (rel === 'V-I') {
+      const domChord = a;
+      const scaleNotes = mixolydianScale(domChord.idx, domChord.rootIsFlat);
+      const domRoot = noteForRoot(domChord.idx, domChord.idx);
+      return [{
+        original: `${a.raw} + ${b.raw}`,
+        scaleName: `${domRoot} Mixolidia`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: domRoot,
+        chordIdx: domChord.idx,
+        chromatic: false,
+        unifiedRelation: 'V-I',
+        unifiedLabel: 'V–I unificado → mixolidia del V'
+      }];
+    }
+
+    // Turnaround / acorde de paso: chequear ANTES que two-dominants
+    // porque Bb7 G7 es dos dominantes pero el G7 es turnaround del Bb7
+    if (isPassingChord(a, b, nextBarFirstChord)) {
+      const intv = ((b.idx - a.idx) + 12) % 12;
+      const tonicTypes = new Set(['major', 'major6', 'dominant']);
+      const isTurnaround = tonicTypes.has(a.type) && intv === 9;
+      const label = isTurnaround
+        ? `(${b.raw}) turnaround — ignorado`
+        : `(${b.raw}) acorde de paso`;
+      const scaleA = getBestScale(a, isFirstBar);
+      return [{
+        original: `${a.raw} (${b.raw})`,
+        scaleName: scaleA.name,
+        scaleNotes: scaleA.notes,
+        scaleType: scaleA.type,
+        chordRoot: noteForRoot(a.idx, a.idx),
+        chordIdx: a.idx,
+        chromatic: false,
+        unifiedRelation: isTurnaround ? 'turnaround' : 'passing',
+        unifiedLabel: label
+      }];
+    }
+
+    if (rel === 'two-dominants') {
+      // Separados: 4 notas cada uno (1,2,3,5 de mixolidia)
+      return chords.map(c => {
+        const scaleNotes = mixolydianScale(c.idx, c.rootIsFlat);
+        const rotated = rotateFromRoot(scaleNotes, c.root);
+        const notes4 = fourNoteField(rotated, c.root);
+        return {
+          original: c.raw,
+          scaleName: `${c.idx ? noteForRoot(c.idx, c.idx) : ""} Mixolidia (4 notas: 1,2,3,5)`,
+          scaleNotes,
+          displayNotes: notes4,
+          scaleType: 'split4',
+          chordRoot: noteForRoot(c.idx, c.idx),
+          chordIdx: c.idx,
+          chromatic: false,
+          unifiedRelation: 'two-dominants',
+          unifiedLabel: 'dos dominantes → 4 notas c/u'
+        };
+      });
+    }
+
+    // Unrelated, 2 chords: check if b is a passing chord (already handled above)
+    // Truly unrelated, 2 chords: 4 notes each (1,2,3,5)
+    return chords.map(c => {
+      const scaleNotes = getBestScale(c, false);
+      const rotated = rotateFromRoot(scaleNotes.notes, c.root);
+      const notes4 = fourNoteField(rotated, c.root);
+      return {
+        original: c.raw,
+        scaleName: `${scaleNotes.name} (4 notas: 1,2,3,5)`,
+        scaleNotes: scaleNotes.notes,
+        displayNotes: notes4,
+        scaleType: 'split4',
+        chordRoot: noteForRoot(c.idx, c.idx),
+        chordIdx: c.idx,
+        chromatic: false,
+        unifiedRelation: 'unrelated-2',
+        unifiedLabel: '2 acordes sin relación → 4 notas c/u'
+      };
+    });
+  }
+
+  // 3 chords: check if first two are ii-V or V-I, then handle remainder
+  if (n === 3) {
+    const rel01 = detectRelationship(chords[0], chords[1]);
+    const rel12 = detectRelationship(chords[1], chords[2]);
+
+    // ii-V + isolated
+    if (rel01 === 'ii-V') {
+      const unified = analyzeBar([chords[0], chords[1]], barIdx, totalBars);
+      const last = buildSingleChordResult(chords[2], false, null);
+      return [...unified, last];
+    }
+    // isolated + ii-V
+    if (rel12 === 'ii-V') {
+      const first = buildSingleChordResult(chords[0], false, chords[1]);
+      const unified = analyzeBar([chords[1], chords[2]], barIdx, totalBars);
+      return [first, ...unified];
+    }
+    // Otherwise: 3 unrelated, ~2-3 notes each → split into 4+4 (first two get 4 notes, last gets 4)
+    // or just treat each independently in 'split4' mode
+    return chords.map(c => {
+      const scaleNotes = getBestScale(c, false);
+      const rotated = rotateFromRoot(scaleNotes.notes, c.root);
+      const notes4 = fourNoteField(rotated, c.root);
+      return {
+        original: c.raw,
+        scaleName: `${scaleNotes.name} (4 notas: 1,2,3,5)`,
+        scaleNotes: scaleNotes.notes,
+        displayNotes: notes4,
+        scaleType: 'split4',
+        chordRoot: noteForRoot(c.idx, c.idx),
+        chordIdx: c.idx,
+        chromatic: false,
+        unifiedRelation: 'multi',
+        unifiedLabel: '3 acordes → 4 notas c/u'
+      };
+    });
+  }
+
+  // 4+ chords: 2 notes each (1,3 del acorde)
+  return chords.map(c => {
+    const notes2 = twoNoteField(c, c.rootIsFlat);
+    const scaleNotes = getBestScale(c, false);
+    return {
+      original: c.raw,
+      scaleName: `${c.root} (2 notas: 1ª–3ª)`,
+      scaleNotes: scaleNotes.notes,
+      displayNotes: notes2,
+      scaleType: 'split2',
+      chordRoot: noteForRoot(c.idx, c.idx),
+      chordIdx: c.idx,
+      chromatic: false,
+      unifiedRelation: 'multi4',
+      unifiedLabel: `${chords.length} acordes → 2 notas c/u`
+    };
+  });
+}
+
+function getBestScale(c, isFirstBar) {
+  const fl = c.rootIsFlat;
+  if (c.type === 'halfDim') {
+    const { notes, mixRoot } = halfDimScale(c.idx, fl);
+    return { notes, name: `Mixolidia de ${noteInContext(mixRoot, fl)}`, type: 'halfdim' };
+  }
+  if (c.type === 'dominant') {
+    return { notes: mixolydianScale(c.idx, fl), name: `${c.idx ? noteForRoot(c.idx, c.idx) : ""} Mixolidia`, type: '7' };
+  }
+  if (c.type === 'major6') {
+    if (allowSixthDim(c, isFirstBar, false)) {
+      return { notes: sixthDimScale(c.idx, false, fl), name: `${c.idx ? noteForRoot(c.idx, c.idx) : ""} 6ta-Dim`, type: '8dim' };
+    }
+    return { notes: majorScale(c.idx, fl), name: `${c.idx ? noteForRoot(c.idx, c.idx) : ""} Mayor`, type: '7' };
+  }
+  if (c.type === 'minor') {
+    // Menor aislado: siempre 6ta-dim menor
+    return { notes: sixthDimScale(c.idx, true, fl), name: `${noteForRoot(c.idx, c.idx)} 6ta-Dim menor`, type: '8dim' };
+  }
+  return { notes: majorScale(c.idx, fl), name: `${c.idx ? noteForRoot(c.idx, c.idx) : ""} Mayor`, type: '7' };
+}
+
+function buildSingleChordResult(c, isFirstBar, nextBarFirstChord) {
+  const fl = c.rootIsFlat;
+  let scaleNotes, scaleName, scaleType, chromatic = false;
+
+  // Check if next bar starts with a V7 (for Im7 sextification rule)
+  const nextIsV7 = nextBarFirstChord &&
+    nextBarFirstChord.type === 'dominant' &&
+    ((nextBarFirstChord.idx - c.idx + 12) % 12) === 7;
+
+  if (c.type === 'halfDim') {
+    const { notes, mixRoot } = halfDimScale(c.idx, fl);
+    scaleNotes = notes;
+    scaleName = `${noteInContext(mixRoot, fl)} Mixolidia (2 tonos abajo) → b7 desc.`;
+    scaleType = 'halfdim';
+    chromatic = true;
+  } else if (c.type === 'dominant') {
+    scaleNotes = mixolydianScale(c.idx, fl);
+    scaleName = `${noteInContext(c.idx, fl)} Mixolidia`;
+    scaleType = '7';
+  } else if (c.type === 'major' || c.type === 'dim') {
+    if (isFirstBar && allowSixthDim(c, true, false)) {
+      scaleNotes = sixthDimScale(c.idx, false, fl);
+      scaleName = `${noteInContext(c.idx, fl)} 6ta-Disminuida (centro tonal)`;
+      scaleType = '8dim';
+    } else {
+      scaleNotes = majorScale(c.idx, fl);
+      scaleName = `${noteInContext(c.idx, fl)} Mayor`;
+      scaleType = '7';
+    }
+  } else if (c.type === 'major6') {
+    if (allowSixthDim(c, isFirstBar, false)) {
+      scaleNotes = sixthDimScale(c.idx, false, fl);
+      scaleName = `${noteInContext(c.idx, fl)} 6ta-Disminuida`;
+      scaleType = '8dim';
+    } else {
+      scaleNotes = majorScale(c.idx, fl);
+      scaleName = `${noteInContext(c.idx, fl)} Mayor`;
+      scaleType = '7';
+    }
+  } else if (c.type === 'minor') {
+    // Menor aislado (no asociado a V7): siempre 6ta-dim menor
+    // El toggle solo controla Imaj7, no acordes menores
+    const canSextify = !nextIsV7;
+    if (canSextify) {
+      scaleNotes = sixthDimScale(c.idx, true, fl);
+      scaleName = `${noteForRoot(c.idx, c.idx)} 6ta-Disminuida menor`;
+      scaleType = '8dim';
+    } else {
+      // Tiene V7 siguiente → usar mixolidia (funciona como ii)
+      scaleNotes = mixolydianScale(c.idx, fl);
+      scaleName = `${noteForRoot(c.idx, c.idx)} Mixolidia`;
+      scaleType = '7';
+    }
+  }
+
+  return {
+    original: c.raw,
+    scaleName,
+    scaleNotes,
+    scaleType,
+    chordRoot: noteInContext(c.idx, fl), // use key-correct notation
+    chordIdx: c.idx,
+    chromatic,
+    unifiedRelation: null,
+    unifiedLabel: null
+  };
+}
+
+function rotateFromRoot(notes, rootNote) {
+  const pos = notes.indexOf(rootNote);
+  if (pos === -1) return notes;
+  return [...notes.slice(pos), ...notes.slice(0, pos)];
+}
+
+// ─── DIRECTION LOGIC ──────────────────────────────────────────────────────────
+
+function isMergeEnabled() {
+  const el = document.getElementById('merge-chk');
+  return el ? el.checked : false;
+}
+
+// Fingerprint de escala: semitonos normalizados + raíz del acorde
+function scaleFingerprint(notes, rootNote) {
+  const semis = notes.map(n => {
+    const norm = ENHARMONICS[n] || n;
+    return NOTES_SHARP.indexOf(norm);
+  }).filter(s => s !== -1);
+  const rootNorm = rootNote ? (ENHARMONICS[rootNote] || rootNote) : '';
+  const rootIdx = rootNorm ? NOTES_SHARP.indexOf(rootNorm) : -1;
+  return [...new Set(semis)].sort((a, b) => a - b).join(',') + '|' + rootIdx;
+}
+
+// Normalize note name to semitone index for comparison
+function noteToSemi(n) {
+  const norm = ENHARMONICS[n] || n;
+  return NOTES_SHARP.indexOf(norm);
+}
+
+function applyM2Pattern(displayNotes, scaleType) {
+  // Module 2 pattern: for major and mixolydian descending,
+  // swap positions 0 and 1 (notes 7 and 6 → 6 and 7)
+  const applyTypes = new Set(['maj', '7']); // major and mixolydian
+  if (!applyTypes.has(scaleType)) return displayNotes;
+  if (displayNotes.length < 2) return displayNotes;
+  const result = [...displayNotes];
+  // Swap first two notes
+  [result[0], result[1]] = [result[1], result[0]];
+  return result;
+}
+
+function applyDirections(allResults) {
+  let lastFingerprint = null;
+  let lastDirection = 'up';
+  const merge = isMergeEnabled();
+
+  const results = allResults.map(r => {
+    if (r.scaleType === 'halfdim' || r.unifiedRelation === 'dom-sharpdim') {
+      return { ...r, direction: 'down', displayNotes: r.displayNotes || [...r.scaleNotes] };
+    }
+    if (r.scaleType === 'split4' || r.scaleType === 'split2') {
+      return { ...r, direction: 'split' };
+    }
+    if (r.scaleType === 'ref') {
+      return { ...r, direction: 'split', displayNotes: [] };
+    }
+
+    const fp = scaleFingerprint(r.scaleNotes, r.chordRoot);
+    let dir;
+    if (fp === lastFingerprint) {
+      dir = lastDirection === 'up' ? 'down' : 'up';
+    } else {
+      dir = 'up';
+    }
+    lastDirection = dir;
+    lastFingerprint = fp;
+
+    const rotated = rotateFromRoot(r.scaleNotes, r.chordRoot);
+    let displayNotes;
+    if (dir === 'up') {
+      displayNotes = r.scaleType === '8dim' ? rotated.slice(0, 7) : rotated;
+    } else {
+      const descBase = r.scaleType === '8dim' ? rotated.slice(0, 7) : rotated;
+      const reversed = [...descBase].reverse();
+      // Apply Module 2 pattern to descending major and mixolydian
+      displayNotes = applyM2Pattern(reversed, r.scaleType);
+    }
+
+    return { ...r, direction: dir, displayNotes };
+  });
+
+  // Merge pass
+  if (merge) {
+    for (let i = 1; i < results.length; i++) {
+      const prev = results[i - 1];
+      const curr = results[i];
+      if (!prev.displayNotes?.length || !curr.displayNotes?.length) continue;
+      if (curr.direction === 'split' || prev.direction === 'split') continue;
+      if (curr.scaleType === 'ref' || prev.scaleType === 'ref') continue;
+      const lastNote = prev.displayNotes[prev.displayNotes.length - 1];
+      const lastSemi = noteToSemi(lastNote);
+      const pos = curr.displayNotes.findIndex(n => noteToSemi(n) === lastSemi);
+      if (pos !== -1) {
+        const nextPos = pos + 1;
+        if (nextPos < curr.displayNotes.length) {
+          results[i] = { ...curr, displayNotes: [...curr.displayNotes.slice(nextPos), ...curr.displayNotes.slice(0, pos)] };
+        } else {
+          results[i] = { ...curr, displayNotes: curr.displayNotes.slice(0, pos) };
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+
+// ─── PARSE INPUT ──────────────────────────────────────────────────────────────
+
+function parseInput(raw) {
+  const hasBarlines = raw.includes('/') || raw.includes('|');
+  let barStrings;
+  if (hasBarlines) {
+    barStrings = raw.split(/[\/|]/).map(s => s.trim()).filter(Boolean);
+  } else {
+    barStrings = raw.split(/[\s,]+/).filter(Boolean);
+    return barStrings.map(s => ({ raw: s, chords: [parseChord(s)].filter(Boolean) }));
+  }
+
+  // First pass: parse all bars, resolving % as repeat of previous bar
+  const bars = [];
+  let lastBar = null;
+  barStrings.forEach(s => {
+    const trimmed = s.trim();
+    // % = repeat previous bar
+    if (trimmed === '%' || trimmed === '%%') {
+      if (lastBar) bars.push({ ...lastBar, raw: trimmed + ' (rep.)' });
+      return;
+    }
+    const tokens = trimmed.split(/[\s,]+/).filter(Boolean);
+    const chords = tokens.map(parseChord).filter(Boolean);
+    if (chords.length > 0) {
+      const bar = { raw: trimmed, chords };
+      bars.push(bar);
+      lastBar = bar;
+    }
+  });
+  return bars;
+}
+
+// ─── SCALE TYPE LABEL (condensed) ────────────────────────────────────────────
+
+function scaleLabel(r) {
+  if (r.scaleType === 'ref') return '— referencia';
+  const root = r.chordRoot || '';
+  if (r.scaleType === 'halfdim') {
+    // Show the mixolydian root (4 semitones below chord root) + minor harmonic reference
+    const chordIdx = r.chordIdx !== undefined ? r.chordIdx : 0;
+    const mixRootIdx = ((chordIdx - 4) % 12 + 12) % 12;
+    const mixRoot = noteForRoot(mixRootIdx, mixRootIdx);
+    return `${mixRoot} Mixolidia b7→#1`;
+  }
+  if (r.scaleType === '8dim') return `${root} 6ta Disminuida`;
+  if (r.scaleType === 'split4') return `${root} Parcial 4 notas`;
+  if (r.scaleType === 'split2') return `${root} Parcial 2 notas`;
+  if (r.scaleName && r.scaleName.toLowerCase().includes('mixolidia')) return `${root} Mixolidia`;
+  return `${root} Mayor`;
+}
+
+// ─── RENDER (condensed) ───────────────────────────────────────────────────────
+
+// Global store of rendered note sequences for audio
+let audioSequences = []; // [{notes: ['C','E',...], label}]
+
+function renderResult(r, globalIdx) {
+  const dirCls = r.direction === 'up' ? 'meta-dir-up'
+    : r.direction === 'down' ? 'meta-dir-down'
+    : 'meta-dir-split';
+  const dirText = r.direction === 'up' ? '↑ Escala arriba'
+    : r.direction === 'down' ? '↓ Escala abajo'
+    : '÷ Dividido';
+
+  const notesHtml = (r.displayNotes || []).map((n, i) => {
+    const isLast = i === (r.displayNotes.length - 1);
+    const isChromatic = r.chromatic && isLast;
+    const isRoot = (n === r.chordRoot) && !isChromatic;
+    let cls = 'note';
+    if (isChromatic) cls += ' chromatic';
+    else if (isRoot) cls += ' root';
+    const arrow = i < r.displayNotes.length - 1 ? `<span class="arrow">→</span>` : '';
+    return `<span class="${cls}" data-seq="${globalIdx}" data-ni="${i}">${n}</span>${arrow}`;
+  }).join('');
+
+  // Full-view extra info
+  const fullInfo = r.unifiedLabel
+    ? `<span style="color:var(--amber)">${r.unifiedLabel}</span>`
+    : `<span style="color:var(--dim)">${r.scaleName}</span>`;
+
+  return `
+    <div class="bar-main">
+      <div class="bar-chord-name">${r.original}</div>
+      <div class="bar-meta">
+        <span class="meta-scale">${scaleLabel(r)}</span>
+        <span class="${dirCls}">${dirText}</span>
+      </div>
+      <div class="bar-notes">${notesHtml}</div>
+      <div class="bar-full-info">${fullInfo}</div>
+    </div>
+    <button class="btn-play-bar" onclick="playSequence(${globalIdx}, this)" title="Escuchar">▶</button>`;
+}
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
+
+function analyze() {
+  const raw = document.getElementById('input').value;
+  sanitizeAndShow();
+  const sanitized = document.getElementById('input').value;
+  const out = document.getElementById('output');
+  useFlats = false;
+
+  if (!sanitized.trim()) {
+    out.innerHTML = '<div class="empty">Ingresá una progresión para analizar.</div>';
+    return;
+  }
+
+  const bars = parseInput(sanitized);
+  if (!bars.length || bars.every(b => b.chords.length === 0)) {
+    out.innerHTML = '<div class="error">No se reconocieron acordes. Revisá el formato.</div>';
+    return;
+  }
+
+  // Detect key signature for consistent notation
+  // (now handled per-scale via circle of fifths in noteForRoot)
+
+  // Store first chord index for V-I turnaround detection
+  progressionFirstChordIdx = bars[0]?.chords[0]?.idx ?? -1;
+
+  // Determine context
+  const isAuto = document.getElementById('ctx-auto').checked;
+  if (isAuto) {
+    currentContext = detectContext(bars);
+    const ctxNames = {
+      general: 'General', blues: 'Blues', jazzblues: 'Jazz Blues',
+      bluesmenor: 'Blues Menor', rhythmchanges: 'Rhythm Changes'
+    };
+    const badgeContexts = new Set(['blues', 'jazzblues', 'bluesmenor', 'rhythmchanges']);
+    const el = document.getElementById('ctx-detected');
+    const name = ctxNames[currentContext];
+    if (badgeContexts.has(currentContext)) {
+      el.textContent = name;
+      el.className = 'ctx-detected badge';
+    } else {
+      el.textContent = `→ ${name}`;
+      el.className = 'ctx-detected';
+    }
+    document.getElementById('ctx-select').value = currentContext;
+  } else {
+    currentContext = document.getElementById('ctx-select').value;
+    const el = document.getElementById('ctx-detected');
+    el.textContent = '';
+    el.className = 'ctx-detected';
+  }
+
+  // Set RC tonic if needed
+  if (currentContext === 'rhythmchanges') {
+    const tonic = findRCTonic(bars);
+    if (tonic) { rcTonicIdx = tonic.idx; rcTonicFlat = tonic.flat; }
+  } else {
+    rcTonicIdx = -1;
+  }
+  const totalBars = bars.length;
+  const totalChords = bars.reduce((a,b) => a + b.chords.length, 0);
+
+  // ── RC section detection ──
+  let rcSections = [];
+  if (currentContext === 'rhythmchanges' && rcTonicIdx !== -1) {
+    bars.forEach((bar, i) => {
+      const chords = bar.chords;
+      const chromType = detectRCChromBar({ chords }, rcTonicIdx);
+      if (chromType === 'rc-chrom-asc' || chromType === 'rc-chrom-desc') {
+        rcSections[i] = 'rc-c5';   // c5: I mixo
+        if (i + 1 < bars.length) rcSections[i + 1] = 'rc-c6'; // c6: IV mixo
+      } else if (rcSections[i] === 'rc-c6') {
+        // already tagged by previous c5
+      } else if (isRCBridgeBar({ chords }, rcTonicIdx)) {
+        rcSections[i] = 'rc-bridge';
+      } else if (chords.length === 1 && chords[0].type === 'dominant' &&
+                 ((chords[0].idx - rcTonicIdx + 12) % 12) === 6) {
+        rcSections[i] = 'rc-bVI';
+      } else {
+        if (!rcSections[i]) rcSections[i] = 'rc-partA';
+      }
+    });
+  }
+
+  // ── Cross-bar ii-V detection ──
+  const crossBarIIV = new Set();    // bar indices that are 'ii' (minor) of cross-bar ii-V
+  const crossBarHalfDim = new Set(); // bar indices that are halfDim before a V7
+  const crossBarDomSharpDim = new Set(); // bar indices that are dominant before #dim
+  bars.forEach((bar, i) => {
+    const nextBar = bars[i + 1];
+    if (!nextBar) return;
+    if (bar.chords.length === 1 && nextBar.chords.length === 1) {
+      const a = bar.chords[0];
+      const b = nextBar.chords[0];
+      const intv = ((b.idx - a.idx) + 12) % 12;
+      if (b.type === 'dominant' && (intv === 5 || intv === 7)) {
+        if (a.type === 'minor') crossBarIIV.add(i);
+        if (a.type === 'halfDim') crossBarHalfDim.add(i);
+      }
+      // Dominant → #dim (dim is 1 semitone above dominant root)
+      if (a.type === 'dominant' && b.type === 'dim' && intv === 1) {
+        crossBarDomSharpDim.add(i);
+      }
+    }
+  });
+
+  // ── Last bar V7 detection ──
+  // If the last chord of the whole progression is a V7 of the first chord → last bar uses V mixo
+  const firstChordIdx = bars[0]?.chords[0]?.idx ?? -1;
+  const lastBar = bars[bars.length - 1];
+  const lastChord = lastBar?.chords[lastBar.chords.length - 1];
+  let lastBarIsV7Return = false;
+  if (lastChord && lastChord.type === 'dominant' && firstChordIdx !== -1) {
+    const toFirst = ((firstChordIdx - lastChord.idx) + 12) % 12;
+    if (toFirst === 5 || toFirst === 7) lastBarIsV7Return = true;
+  }
+
+  allResults = [];
+  bars.forEach((bar, barIdx) => {
+    const nextBar = bars[barIdx + 1];
+    const nextBarFirstChord = nextBar ? nextBar.chords[0] : null;
+    let results;
+
+    // ── Dom→#dim: ALWAYS check first, regardless of context ──
+    if (bar.chords.length === 1 &&
+        bar.chords[0].type === 'dominant' &&
+        nextBar && nextBar.chords.length === 1 &&
+        nextBar.chords[0].type === 'dim' &&
+        ((nextBar.chords[0].idx - bar.chords[0].idx + 12) % 12) === 1) {
+      const c = bar.chords[0];
+      const b7idx = ((c.idx + 10) % 12 + 12) % 12;
+      const sharpOneIdx = ((c.idx + 1) % 12 + 12) % 12;
+      const scaleNotes = [10, 9, 7, 5, 4, 2, 1].map(s => noteForRoot(c.idx + s, b7idx));
+      results = [{
+        original: c.raw,
+        scaleName: `${noteForRoot(b7idx, b7idx)}→${noteForRoot(sharpOneIdx, sharpOneIdx)} (b7→#1)`,
+        scaleNotes,
+        scaleType: 'halfdim',
+        chordRoot: noteForRoot(c.idx, c.idx),
+        chordIdx: c.idx,
+        displayNotes: scaleNotes,
+        chromatic: true,
+        unifiedRelation: 'dom-sharpdim',
+        unifiedLabel: `Dom→#dim: b7→#1 descendente`
+      }];
+    }
+    // ── #dim after dom: ALWAYS check first ──
+    else if (bar.chords.length === 1 &&
+        bar.chords[0].type === 'dim' && barIdx > 0 &&
+        bars[barIdx-1].chords.length === 1 &&
+        bars[barIdx-1].chords[0].type === 'dominant' &&
+        ((bar.chords[0].idx - bars[barIdx-1].chords[0].idx + 12) % 12) === 1) {
+      results = [{
+        original: bar.chords[0].raw,
+        scaleName: '',
+        scaleNotes: [],
+        scaleType: 'ref',
+        chordRoot: noteForRoot(bar.chords[0].idx, bar.chords[0].idx),
+        chordIdx: bar.chords[0].idx,
+        displayNotes: [],
+        chromatic: false,
+        unifiedRelation: 'dom-sharpdim-ref',
+        unifiedLabel: '#dim — referencia'
+      }];
+    }
+    // Last bar V7 return: use V mixo for whole bar
+    if (lastBarIsV7Return && barIdx === totalBars - 1) {
+      const vRoot = noteForRoot(lastChord.idx, lastChord.idx);
+      const chordNames = bar.chords.map(c => c.raw).join(' ');
+      results = [{
+        original: chordNames,
+        scaleName: `${vRoot} Mixolidia`,
+        scaleNotes: mixolydianScale(lastChord.idx, lastChord.rootIsFlat),
+        scaleType: '7',
+        chordRoot: vRoot,
+        chordIdx: lastChord.idx,
+        chromatic: false,
+        unifiedRelation: 'v7-return',
+        unifiedLabel: `V7 → vuelve al inicio`
+      }];
+    }
+    // RC c5: chromatic bar → I mixo (tonic mixolydian)
+    else if (rcSections[barIdx] === 'rc-c5') {
+      const tonicNote = noteForRoot(rcTonicIdx, rcTonicIdx);
+      const chordNames = bar.chords.map(c => c.raw).join(' ');
+      results = [{
+        original: chordNames,
+        scaleName: `${tonicNote} Mixolidia (RC c.5)`,
+        scaleNotes: mixolydianScale(rcTonicIdx, rcTonicFlat),
+        scaleType: '7',
+        chordRoot: tonicNote,
+        chordIdx: rcTonicIdx,
+        chromatic: false,
+        unifiedRelation: 'rc-c5',
+        unifiedLabel: `RC c.5 → ${tonicNote} Mixo`
+      }];
+    }
+    // RC c6: bar after chromatic → IV mixo
+    else if (rcSections[barIdx] === 'rc-c6') {
+      const ivIdx = (rcTonicIdx + 5) % 12;
+      const ivNote = noteForRoot(ivIdx, ivIdx);
+      const chordNames = bar.chords.map(c => c.raw).join(' ');
+      results = [{
+        original: chordNames,
+        scaleName: `${ivNote} Mixolidia (RC c.6)`,
+        scaleNotes: mixolydianScale(ivIdx, rcTonicFlat),
+        scaleType: '7',
+        chordRoot: ivNote,
+        chordIdx: ivIdx,
+        chromatic: false,
+        unifiedRelation: 'rc-c6',
+        unifiedLabel: `RC c.6 → ${ivNote} Mixo`
+      }];
+    }
+    // RC c6: single tonic chord after chromatic bar → IV mixo only
+    else if (rcSections[barIdx] === 'rc-c56' && bar.chords.length === 1 &&
+        ((bar.chords[0].idx - rcTonicIdx + 12) % 12) === 0) {
+      results = buildRCC6Result(bar, rcTonicIdx, rcTonicFlat);
+    }
+    // Dominant → #dim: use b7→#1 descending from dominant's b7
+    else if (crossBarDomSharpDim.has(barIdx)) {
+      const c = bar.chords[0];
+      const b7idx = (c.idx + 10) % 12;
+      const sharpOneIdx = (c.idx + 1) % 12;
+      const descSteps = [10, 9, 7, 5, 4, 2, 1];
+      const scaleNotes = descSteps.map(s => noteForRoot(c.idx + s, b7idx));
+      const domRoot = noteForRoot(c.idx, c.idx);
+      results = [{
+        original: c.raw,
+        scaleName: `${noteForRoot(b7idx, b7idx)}→${noteForRoot(sharpOneIdx, sharpOneIdx)} (b7→#1)`,
+        scaleNotes,
+        scaleType: 'halfdim',
+        chordRoot: domRoot,
+        chordIdx: c.idx,
+        displayNotes: scaleNotes,
+        chromatic: true,
+        unifiedRelation: 'dom-sharpdim',
+        unifiedLabel: `Dom→#dim: b7→#1 descendente`
+      }];
+    }
+    // #dim after dominant → reference only
+    else if (barIdx > 0 && crossBarDomSharpDim.has(barIdx - 1)) {
+      results = [{
+        original: bar.chords[0].raw,
+        scaleName: '',
+        scaleNotes: [],
+        scaleType: 'ref',
+        chordRoot: noteForRoot(bar.chords[0].idx, bar.chords[0].idx),
+        chordIdx: bar.chords[0].idx,
+        displayNotes: [],
+        chromatic: false,
+        unifiedRelation: 'dom-sharpdim-ref',
+        unifiedLabel: '#dim — referencia'
+      }];
+    }
+    // Cross-bar halfDim: this bar is halfDim — use its own semidim scale (8 notes)
+    else if (crossBarHalfDim.has(barIdx)) {
+      results = analyzeBar(bar.chords, barIdx, totalBars, null);
+    }
+    // Cross-bar halfDim: V7 bar — reference only, no scale
+    else if (barIdx > 0 && crossBarHalfDim.has(barIdx - 1)) {
+      results = [{
+        original: bar.chords[0].raw,
+        scaleName: '',
+        scaleNotes: [],
+        scaleType: 'ref',
+        chordRoot: noteForRoot(bar.chords[0].idx, bar.chords[0].idx),
+        chordIdx: bar.chords[0].idx,
+        displayNotes: [],
+        chromatic: false,
+        unifiedRelation: 'halfdim-V',
+        unifiedLabel: 'V7 — referencia'
+      }];
+    }
+    // Cross-bar ii-V: this bar is the 'ii' — use V's mixolydian
+    else if (crossBarIIV.has(barIdx)) {
+      const domChord = nextBar.chords[0];
+      const scaleNotes = mixolydianScale(domChord.idx, domChord.rootIsFlat);
+      const domRoot = noteForRoot(domChord.idx, domChord.idx);
+      results = [{
+        original: `${bar.chords[0].raw}`,
+        scaleName: `${domRoot} Mixolidia`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: domRoot,
+        chordIdx: domChord.idx,
+        chromatic: false,
+        unifiedRelation: 'ii-V-cross',
+        unifiedLabel: `ii–V entre compases → ${domRoot} Mixo`
+      }];
+    }
+    // Cross-bar ii-V: this bar is the 'V' — same mixolydian, mark as continuation
+    else if (barIdx > 0 && crossBarIIV.has(barIdx - 1)) {
+      const domChord = bar.chords[0];
+      const scaleNotes = mixolydianScale(domChord.idx, domChord.rootIsFlat);
+      const domRoot = noteForRoot(domChord.idx, domChord.idx);
+      results = [{
+        original: `${bar.chords[0].raw}`,
+        scaleName: `${domRoot} Mixolidia`,
+        scaleNotes,
+        scaleType: '7',
+        chordRoot: domRoot,
+        chordIdx: domChord.idx,
+        chromatic: false,
+        unifiedRelation: 'ii-V-cross',
+        unifiedLabel: `V del ii–V entre compases`
+      }];
+    }
+    else {
+      results = analyzeBar(bar.chords, barIdx, totalBars, nextBarFirstChord);
+    }
+
+    allResults.push({ barIdx, results, chordsInBar: bar.chords.length, rcSection: rcSections[barIdx] || null });
+  });
+
+  const flat = allResults.flatMap(b => b.results);
+  const withDir = applyDirections(flat);
+
+  // Build audio sequences — store direction for correct octave resolution
+  audioSequences = withDir.map((r, i) => ({
+    notes: r.displayNotes || [],
+    label: r.original,
+    direction: r.direction || 'up'
+  }));
+
+  let ptr = 0;
+  let html = `<div style="border:1px solid var(--border);border-radius:2px;overflow:hidden;">`;
+
+  let lastSection = null;
+  const rcSectionLabels = {
+    'rc-partA': 'PARTE A',
+    'rc-c5':    'C. 5',
+    'rc-c6':    'C. 6',
+    'rc-c56':   'C. 5–6',
+    'rc-bridge':'PARTE B (Bridge)',
+    'rc-bVI':   'bVI sub'
+  };
+
+  // AABA form labels for Rhythm Changes: detect bridge position, split into A1/A2/B/A3
+  let rcFormLabels = {}; // barIdx → form label
+  if (currentContext === 'rhythmchanges') {
+    // Find bridge start (first rc-bridge bar)
+    const bridgeStart = allResults.findIndex(r => r.rcSection === 'rc-bridge');
+    if (bridgeStart !== -1) {
+      // Bridge end
+      let bridgeEnd = bridgeStart;
+      while (bridgeEnd < allResults.length - 1 && allResults[bridgeEnd + 1].rcSection === 'rc-bridge') bridgeEnd++;
+      // A1: bars before bridge first half
+      const aHalf = Math.floor(bridgeStart / 2);
+      allResults.forEach((r, idx) => {
+        if (idx < aHalf) rcFormLabels[r.barIdx] = 'A1';
+        else if (idx < bridgeStart) rcFormLabels[r.barIdx] = 'A2';
+        else if (idx <= bridgeEnd) rcFormLabels[r.barIdx] = 'B';
+        else rcFormLabels[r.barIdx] = 'A3';
+      });
+    }
+  }
+
+  let lastFormLabel = null;
+
+  allResults.forEach(({ barIdx, results, rcSection }) => {
+    // AABA form header
+    if (currentContext === 'rhythmchanges' && rcFormLabels[barIdx] && rcFormLabels[barIdx] !== lastFormLabel) {
+      const fl = rcFormLabels[barIdx];
+      const formNames = { A1: 'PARTE A¹', A2: 'PARTE A²', B: 'PARTE B — Bridge', A3: 'PARTE A³' };
+      html += `<div style="background:#050505;border-top:2px solid var(--amber);padding:6px 14px;font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--amber);font-weight:bold;">${formNames[fl] || fl}</div>`;
+      lastFormLabel = fl;
+      lastSection = null; // reset section label within new form part
+    }
+
+    // Section sub-header within form part
+    if (rcSection && rcSection !== lastSection) {
+      const label = rcSectionLabels[rcSection] || rcSection;
+      html += `<div style="background:#0a0a0a;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:4px 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#888;">${label}</div>`;
+      lastSection = rcSection;
+    }
+
+    results.forEach((r, i) => {
+      const directed = withDir[ptr];
+      const globalIdx = ptr;
+      ptr++;
+      const numCell = i === 0
+        ? `<div class="bar-num"><span>${barIdx + 1}</span></div>`
+        : `<div class="bar-num"></div>`;
+      html += `<div class="bar-row">
+        ${numCell}
+        ${renderResult(directed, globalIdx)}
+      </div>`;
+    });
+  });
+
+  html += `</div>`;
+  out.innerHTML = html;
+
+  // Show sticky top controls
+  document.getElementById('top-controls').classList.add('visible');
+  const btn = document.getElementById('btn-transpose');
+  btn.style.display = '';
+  if (!document.getElementById('transpose-area').classList.contains('visible')) {
+    transposeState.originalRaw = raw;
+  }
+}
+
+function clearAll() {
+  stopAll();
+  document.getElementById('input').value = '';
+  document.getElementById('output').innerHTML = '';
+  document.getElementById('top-controls').classList.remove('visible');
+  audioSequences = [];
+}
+
+function loadEx(prog) {
+  document.getElementById('input').value = prog;
+  analyze();
+}
+
+// ─── AUDIO ENGINE ─────────────────────────────────────────────────────────────
+
+let audioCtx = null;
+let currentStop = null; // function to stop current playback
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Semitone index (C=0) for each note name
+const NOTE_SEMITONE = {
+  'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'Fb':4,'F':5,'F#':6,
+  'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11,'Cb':11
+};
+
+// Frequency of C in each octave
+function noteFreq(noteName, octave) {
+  const semi = NOTE_SEMITONE[noteName];
+  if (semi === undefined) return null;
+  // MIDI note: C4 = 60
+  const midi = (octave + 1) * 12 + semi;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+// Simulate the full sequence of semitones+octaves for a given startOctave,
+// return the freq of each note so we can check the range
+function simulateFreqs(notes, direction, startOctave) {
+  const result = [];
+  let oct = startOctave;
+  let prevSemi = NOTE_SEMITONE[notes[0]];
+  if (prevSemi === undefined) return [];
+  result.push(noteFreq(notes[0], oct));
+  for (let i = 1; i < notes.length; i++) {
+    const s = NOTE_SEMITONE[notes[i]];
+    if (s === undefined) continue;
+    if (direction === 'up') { if (s <= prevSemi) oct++; }
+    else                    { if (s >= prevSemi) oct--; }
+    result.push(noteFreq(notes[i], oct));
+    prevSemi = s;
+  }
+  return result;
+}
+
+// Target: median frequency of the sequence should land near D4 (~293 Hz)
+// Try octaves 2–6 and pick whichever median is closest to 293 Hz
+function getStartOctave(notes, direction) {
+  if (!notes.length) return 4;
+  if (NOTE_SEMITONE[notes[0]] === undefined) return 4;
+  const TARGET = 293; // D4 — center of central register
+  let bestOct = 4;
+  let bestDiff = Infinity;
+  for (let oct = 2; oct <= 6; oct++) {
+    const freqs = simulateFreqs(notes, direction, oct).filter(Boolean);
+    if (!freqs.length) continue;
+    const sorted = [...freqs].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const diff = Math.abs(median - TARGET);
+    if (diff < bestDiff) { bestDiff = diff; bestOct = oct; }
+  }
+  return bestOct;
+}
+
+function resolveFreqs(notes, direction, startOctave) {
+  if (!notes.length) return [];
+  const freqs = [];
+  let oct = startOctave;
+  let prevSemi = NOTE_SEMITONE[notes[0]];
+  freqs.push(noteFreq(notes[0], oct));
+
+  for (let i = 1; i < notes.length; i++) {
+    const semi = NOTE_SEMITONE[notes[i]];
+    if (semi === undefined) { freqs.push(null); continue; }
+
+    if (direction === 'up') {
+      if (semi <= prevSemi) oct++;
+    } else {
+      // Descending: next should be lower
+      // Exception: chromatic half-step up (1 semitone) = passing tone, keep octave
+      const stepUp = ((semi - prevSemi) + 12) % 12;
+      if (stepUp === 1) {
+        // half-step up chromatic passing note — stay in same octave
+      } else if (semi >= prevSemi) {
+        oct--;
+      }
+    }
+    freqs.push(noteFreq(notes[i], oct));
+    prevSemi = semi;
+  }
+  return freqs;
+}
+
+let activeOscillators = [];
+
+function playTone(ctx, freq, startTime, duration) {
+  // Piano synthesis: additive harmonics + ADSR envelope
+  // Harmonic series with natural decay rates
+  const harmonics = [
+    { ratio: 1,    gain: 0.6,  detune: 0    },
+    { ratio: 2,    gain: 0.25, detune: 1.2  },
+    { ratio: 3,    gain: 0.12, detune: -0.8 },
+    { ratio: 4,    gain: 0.07, detune: 1.5  },
+    { ratio: 5,    gain: 0.04, detune: -1.0 },
+    { ratio: 6,    gain: 0.02, detune: 0.5  },
+  ];
+
+  // Master output with low-pass filter (piano loses highs over time)
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = Math.min(freq * 12, 8000);
+  filter.Q.value = 0.5;
+  filter.connect(ctx.destination);
+
+  // Decay time: lower notes decay slower (like a real piano)
+  const decayTime = Math.min(duration + 1.5, 4.0) * (1 + (300 / Math.max(freq, 100)));
+  const normDecay = Math.min(decayTime, 5.0);
+
+  harmonics.forEach(h => {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env);
+    env.connect(filter);
+
+    osc.type = 'sine';
+    osc.frequency.value = freq * h.ratio;
+    osc.detune.value = h.detune;
+
+    // ADSR: fast attack, exponential decay, no sustain, short release
+    const attack = 0.004;
+    const peakGain = h.gain * 0.35;
+    const sustainLevel = peakGain * 0.05;
+
+    env.gain.setValueAtTime(0, startTime);
+    env.gain.linearRampToValueAtTime(peakGain, startTime + attack);
+    env.gain.exponentialRampToValueAtTime(
+      Math.max(sustainLevel, 0.0001),
+      startTime + attack + normDecay * (1 / h.ratio) // higher harmonics decay faster
+    );
+    env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration + 0.3);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.4);
+
+    activeOscillators.push({ osc, env });
+    osc.onended = () => {
+      activeOscillators = activeOscillators.filter(o => o.osc !== osc);
+    };
+  });
+}
+
+function killAllOscillators() {
+  const now = audioCtx ? audioCtx.currentTime : 0;
+  activeOscillators.forEach(({ osc, env }) => {
+    try {
+      env.gain.cancelScheduledValues(now);
+      env.gain.setValueAtTime(0, now);
+      osc.stop(now);
+    } catch(e) {}
+  });
+  activeOscillators = [];
+}
+
+function getBpm() {
+  return parseInt(document.getElementById('bpm-slider').value, 10);
+}
+
+function isSwing() {
+  return document.getElementById('swing-chk').checked;
+}
+
+// Returns array of {startTime, duration} for each note in the sequence
+function getNoteTimings(noteCount, startTime, fillBar) {
+  const bpm = getBpm();
+  const swing = isSwing();
+  const eighthStraight = 60 / (bpm * 2);
+  const swingLong  = (60 / bpm) * (2/3);
+  const swingShort = (60 / bpm) * (1/3);
+  const beatDuration = 60 / bpm;
+  const barDuration = beatDuration * 4; // full 4-beat bar
+
+  const timings = [];
+  let t = startTime;
+  for (let i = 0; i < noteCount; i++) {
+    const isLast = i === noteCount - 1;
+    const isOddCount = noteCount % 2 === 1;
+    let dur;
+    if (isLast && fillBar) {
+      // Extend last note to fill remainder of 4-beat bar
+      const barEnd = startTime + barDuration;
+      dur = Math.max(barEnd - t, swingLong);
+    } else if (isLast && isOddCount) {
+      dur = swing ? swingLong + swingShort : eighthStraight * 2;
+    } else if (!swing) {
+      dur = eighthStraight;
+    } else {
+      dur = (i % 2 === 0) ? swingLong : swingShort;
+    }
+    timings.push({ startTime: t, duration: dur });
+    t += dur;
+  }
+  return timings;
+}
+
+function highlightNote(seqIdx, noteIdx, active) {
+  document.querySelectorAll(`.note[data-seq="${seqIdx}"][data-ni="${noteIdx}"]`).forEach(el => {
+    if (active) el.classList.add('active');
+    else el.classList.remove('active');
+  });
+}
+
+function clearAllHighlights() {
+  document.querySelectorAll('.note.active').forEach(el => el.classList.remove('active'));
+}
+
+function stopAll() {
+  if (currentStop) { currentStop(); currentStop = null; }
+  killAllOscillators();
+  clearAllHighlights();
+  document.querySelectorAll('.btn-play-bar').forEach(b => b.classList.remove('playing'));
+  const pa = document.getElementById('btn-play-all');
+  if (pa) { pa.classList.remove('playing'); pa.textContent = '▶ Play'; }
+  document.body.classList.remove('is-playing');
+}
+
+function playSequence(seqIdx, btn) {
+  stopAll();
+  const seq = audioSequences[seqIdx];
+  if (!seq || !seq.notes.length) return;
+
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime + 0.05;
+  const timings = getNoteTimings(seq.notes.length, now);
+  const dir = seq.direction === 'down' ? 'down' : 'up';
+  const startOct = getStartOctave(seq.notes, dir);
+  const freqs = resolveFreqs(seq.notes, dir, startOct);
+
+  seq.notes.forEach((note, i) => {
+    const freq = freqs[i];
+    if (!freq) return;
+    const { startTime, duration } = timings[i];
+    playTone(ctx, freq, startTime, duration);
+
+    const onDelay = (startTime - ctx.currentTime) * 1000;
+    const offDelay = onDelay + duration * 1000;
+    const onT = setTimeout(() => highlightNote(seqIdx, i, true), Math.max(0, onDelay));
+    const offT = setTimeout(() => highlightNote(seqIdx, i, false), Math.max(0, offDelay));
+    scheduledTimers.push(onT, offT);
+  });
+
+  if (btn) btn.classList.add('playing');
+  const endTime = timings[timings.length - 1].startTime + timings[timings.length - 1].duration;
+  const totalDuration = endTime - now;
+
+  // Schedule metronome if enabled
+  if (isMetroEnabled()) scheduleMetronome(ctx, [now]);
+
+  const endT = setTimeout(() => {
+    clearAllHighlights();
+    if (btn) btn.classList.remove('playing');
+  }, totalDuration * 1000 + 100);
+  scheduledTimers.push(endT);
+
+  currentStop = () => { scheduledTimers.forEach(clearTimeout); scheduledTimers = []; };
+}
+
+let scheduledTimers = [];
+
+function isLoopEnabled() {
+  const el = document.getElementById('loop-chk');
+  return el ? el.checked : false;
+}
+
+function playAll() {
+  if (!audioSequences.length) return;
+  stopAll();
+  document.body.classList.add('is-playing');
+
+  const btn = document.getElementById('btn-play-all');
+  if (btn) { btn.classList.add('playing'); btn.textContent = '■ Tocando...'; }
+
+  const ctx = getAudioCtx();
+
+  const playOnce = (startCursor) => {
+    const playStart = startCursor || (ctx.currentTime + 0.05);
+    let cursor = playStart;
+    const barStartTimes = [];
+
+    audioSequences.forEach((seq, seqIdx) => {
+      barStartTimes.push(cursor);
+      if (!seq.notes.length) {
+        const bpm = getBpm();
+        const swing = isSwing();
+        const barDuration = swing
+          ? ((60/bpm)*(2/3) + (60/bpm)*(1/3)) * 4
+          : (60/(bpm*2)) * 4;
+        cursor += barDuration;
+        return;
+      }
+      const timings = getNoteTimings(seq.notes.length, cursor);
+      const dir = seq.direction === 'down' ? 'down' : 'up';
+      const startOct = getStartOctave(seq.notes, dir);
+      const freqs = resolveFreqs(seq.notes, dir, startOct);
+
+      seq.notes.forEach((note, i) => {
+        const freq = freqs[i];
+        if (!freq) return;
+        const { startTime, duration } = timings[i];
+        playTone(ctx, freq, startTime, duration);
+
+        const onDelay  = (startTime - ctx.currentTime) * 1000;
+        const offDelay = onDelay + duration * 1000;
+        const onT  = setTimeout(() => highlightNote(seqIdx, i, true),  Math.max(0, onDelay));
+        const offT = setTimeout(() => highlightNote(seqIdx, i, false), Math.max(0, offDelay));
+        scheduledTimers.push(onT, offT);
+      });
+
+      cursor = timings[timings.length - 1].startTime + timings[timings.length - 1].duration;
+    });
+
+    if (isMetroEnabled()) scheduleMetronome(ctx, barStartTimes);
+
+    const totalMs = (cursor - ctx.currentTime) * 1000 + 50;
+
+    if (isLoopEnabled()) {
+      const loopT = setTimeout(() => {
+        if (currentStop) playOnce(cursor);
+      }, totalMs - 50);
+      scheduledTimers.push(loopT);
+    } else {
+      const endT = setTimeout(() => {
+        clearAllHighlights();
+        if (btn) { btn.classList.remove('playing'); btn.textContent = '▶ Play'; }
+        document.body.classList.remove('is-playing');
+        currentStop = null;
+      }, totalMs);
+      scheduledTimers.push(endT);
+    }
+  };
+
+  currentStop = () => {
+    scheduledTimers.forEach(clearTimeout);
+    scheduledTimers = [];
+    killAllOscillators();
+    clearAllHighlights();
+    if (btn) { btn.classList.remove('playing'); btn.textContent = '▶ Play'; }
+    document.body.classList.remove('is-playing');
+    currentStop = null;
+  };
+
+  playOnce();
+}
+
+function isMetroEnabled() {
+  const el = document.getElementById('metro-chk');
+  return el ? el.checked : false;
+}
+
+// Play a metronome click (short high-pitched tick)
+function playClick(ctx, startTime, accent) {
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.connect(env);
+  env.connect(ctx.destination);
+  osc.type = 'square';
+  osc.frequency.value = accent ? 1200 : 900;
+  env.gain.setValueAtTime(accent ? 0.3 : 0.15, startTime);
+  env.gain.exponentialRampToValueAtTime(0.001, startTime + 0.04);
+  osc.start(startTime);
+  osc.stop(startTime + 0.05);
+  activeOscillators.push({ osc, env });
+  osc.onended = () => {
+    activeOscillators = activeOscillators.filter(o => o.osc !== osc);
+  };
+}
+
+// Schedule metronome: one click per bar start
+function scheduleMetronome(ctx, barStartTimes) {
+  barStartTimes.forEach((t, i) => {
+    playClick(ctx, t, true); // all clicks accented (= beat 1 of each bar)
+  });
+}
+
+function openModule2() {
+  const input = document.getElementById('input').value.trim();
+  if (!input) { alert('Primero ingresá una progresión.'); return; }
+  const encoded = encodeURIComponent(input);
+  window.open(`barry_harris_m2.html?prog=${encoded}`, '_blank');
+}
+
+function exportPDF() {
+  const prog = document.getElementById('input').value.trim();
+  if (!prog) return;
+
+  // Build print content
+  const rows = document.querySelectorAll('.bar-row');
+  if (!rows.length) return;
+
+  // Collect bar data from current output
+  let bars = [];
+  let currentBarNum = null;
+  rows.forEach(row => {
+    const numEl = row.querySelector('.bar-num span');
+    const chordEl = row.querySelector('.bar-chord-name');
+    const scaleEl = row.querySelector('.meta-scale');
+    const dirEl = row.querySelector('.meta-dir-up, .meta-dir-down, .meta-dir-split');
+    const notesEls = row.querySelectorAll('.note');
+
+    if (!chordEl) return;
+    const barNum = numEl ? numEl.textContent : currentBarNum;
+    if (numEl) currentBarNum = barNum;
+
+    const notes = [...notesEls].map(n => n.textContent).join(' → ');
+    const dir = dirEl ? dirEl.textContent : '';
+    const scale = scaleEl ? scaleEl.textContent : '';
+
+    bars.push({ barNum, chord: chordEl.textContent, scale, dir, notes });
+  });
+
+  // Generate HTML for print
+  const title = prog.length > 60 ? prog.substring(0, 60) + '...' : prog;
+  const cols = 4;
+  const rows2 = [];
+  for (let i = 0; i < bars.length; i += cols) {
+    rows2.push(bars.slice(i, i + cols));
+  }
+
+  const tableRows = rows2.map(row => `
+    <tr>
+      ${row.map(bar => `
+        <td>
+          <div class="bar-num">${bar.barNum}</div>
+          <div class="chord">${bar.chord}</div>
+          <div class="scale">${bar.scale} ${bar.dir}</div>
+          <div class="notes">${bar.notes}</div>
+        </td>
+      `).join('')}
+      ${Array(cols - row.length).fill('<td></td>').join('')}
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><title>Barry Harris — Lead Sheet</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: 'Courier New', monospace; font-size: 10px; color: #000; }
+  h1 { font-size: 14px; margin: 0 0 4px 0; }
+  h2 { font-size: 9px; font-weight: normal; color: #666; margin: 0 0 12px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { width: 25%; vertical-align: top; padding: 8px; border: 1px solid #ccc; }
+  .bar-num { font-size: 8px; color: #888; margin-bottom: 2px; }
+  .chord { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+  .scale { font-size: 8px; color: #444; text-transform: uppercase; margin-bottom: 3px; }
+  .notes { font-size: 9px; color: #222; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<h1>Barry Harris — Scale System</h1>
+<h2>${title}</h2>
+<table>${tableRows}</table>
+
+// ── Module 2: auto-load progression from URL ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const prog = params.get('prog');
+  if (prog) {
+    window.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('input');
+      if (input) {
+        input.value = decodeURIComponent(prog);
+        setTimeout(() => analyze(), 100);
+      }
+    });
+  }
+})();</body>
+</html>`;
+
+  // Show lead sheet in a full-screen overlay (works on all browsers including iOS)
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;overflow:auto;padding-bottom:60px;';
+  overlay.innerHTML = html;
+  
+  // Buttons fixed at bottom
+  const btnBar = document.createElement('div');
+  btnBar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ccc;padding:10px;display:flex;gap:8px;justify-content:center;z-index:10000;';
+  btnBar.innerHTML = `
+    <button onclick="window.print()" style="background:#000;color:#fff;border:none;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:4px;">🖨 Imprimir / PDF</button>
+    <button onclick="document.body.removeChild(document.body.lastChild);document.body.removeChild(document.body.lastChild)" style="background:#666;color:#fff;border:none;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:4px;">✕ Cerrar</button>
+  `;
+  document.body.appendChild(overlay);
+  document.body.appendChild(btnBar);
+}
+
+// ─── ABC NOTATION & PENTAGRAMA ────────────────────────────────────────────────
+
+function generateABC(withDir) {
+  if (!withDir || !withDir.length) return '';
+
+  // ABC note names with octave — range C3 to B4 (two octaves)
+  // ABC: C, = C3, C = C4, c = C5
+  // We use C, to B (C3 to B4) = two octaves
+  const semitoneToABC = (semi, octave) => {
+    const names = ['C','D','E','F','G','A','B'];
+    const accs =  ['' ,'' ,'' ,'' ,'' ,'' ,'' ];
+    // Map semitone to note
+    const noteMap = [
+      'C', '^C', 'D', '_E', 'E', 'F', '^F', 'G', '_A', 'A', '_B', 'B'
+    ];
+    const noteName = noteMap[semi % 12];
+    // Octave adjustment for ABC: C, = oct3, C = oct4, c = oct5
+    if (octave === 3) return noteName + ',';
+    if (octave === 4) return noteName;
+    if (octave === 5) return noteName.replace(/^([_^]?)(.*)/, (_, acc, n) => acc + n.toLowerCase());
+    if (octave === 6) return noteName.replace(/^([_^]?)(.*)/, (_, acc, n) => acc + n.toLowerCase()) + "'";
+    return noteName;
+  };
+
+  // Convert note name to semitone
+  const toSemi = n => NOTE_SEMITONE[n] !== undefined ? NOTE_SEMITONE[n] : -1;
+
+  // Place notes in range C3-B4 following direction, no jumps > a 5th
+  const placeNotes = (displayNotes, direction) => {
+    if (!displayNotes || !displayNotes.length) return ['z'];
+    const semis = displayNotes.map(toSemi).filter(s => s >= 0);
+    if (!semis.length) return ['z'];
+
+    const result = [];
+    // Start in octave 3 for descending, octave 4 for ascending
+    let oct = direction === 'down' ? 5 : 4;
+    let prevSemi = semis[0];
+
+    semis.forEach((semi, i) => {
+      if (i === 0) {
+        result.push(semitoneToABC(semi, oct));
+        prevSemi = semi;
+        return;
+      }
+      const diff = semi - prevSemi;
+      if (direction === 'up') {
+        if (diff < 0) oct++;
+      } else {
+        if (diff > 0) oct--;
+      }
+      // Clamp to range 5-6
+      oct = Math.max(4, Math.min(5, oct));
+      result.push(semitoneToABC(semi, oct));
+      prevSemi = semi;
+    });
+    return result;
+  };
+
+  let abc = 'X:1\nT:Barry Harris\nM:4/4\nL:1/8\nK:C\n%%staffwidth 680\n%%scale 1.4\n%%gchordfont Helvetica 11\n%%annotationfont Helvetica 9\n';
+
+  withDir.forEach((r, i) => {
+    const chordName = (r.original || '').replace(/"/g, '').replace(/[^\w\s#b+\-]/g, '').trim();
+    const scaleName = (r.scaleName || '').replace(/"/g, '').replace(/[^\w\s#b+\-→()]/g, '').trim();
+    const dir = r.direction === 'up' ? '↑' : r.direction === 'down' ? '↓' : '';
+
+    // Chord above, scale info below as annotation
+    const chordLabel = chordName ? `"${chordName} ${dir}"` : '';
+    const scaleLabel = scaleName ? `"_${scaleName}"` : '';
+
+    if (!r.displayNotes || !r.displayNotes.length || r.scaleType === 'ref') {
+      abc += `${chordLabel}${scaleLabel} z8 |`;
+    } else {
+      const notes = placeNotes(r.displayNotes, r.direction);
+      const count = notes.length;
+      const pad = count < 8 ? Array(8 - count).fill('z').join('') : '';
+      abc += `${chordLabel}${scaleLabel} ${notes.join('')}${pad} |`;
+    }
+
+    if ((i + 1) % 4 === 0) abc += '\n';
+  });
+
+  return abc + '\n';
+}
+
+function showPentagrama() {
+  if (!allResults || !allResults.length) {
+    alert('Primero analizá una progresión.');
+    return;
+  }
+
+  const flat = allResults.flatMap(b => b.results);
+  const withDir = applyDirections(flat);
+  const abc = generateABC(withDir);
+
+  const renderStaff = () => {
+    const overlay = document.createElement('div');
+    overlay.id = 'pentagrama-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;overflow:auto;padding:16px;padding-bottom:70px;';
+
+    const title = document.createElement('h2');
+    title.style.cssText = 'font-family:monospace;font-size:14px;color:#000;margin-bottom:12px;';
+    title.textContent = 'Barry Harris — Pentagrama';
+    overlay.appendChild(title);
+
+    const staff = document.createElement('div');
+    staff.id = 'abc-staff';
+    overlay.appendChild(staff);
+
+    const abcBox = document.createElement('textarea');
+    abcBox.value = abc;
+    abcBox.style.cssText = 'width:100%;height:80px;font-size:10px;font-family:monospace;margin-top:12px;background:#f5f5f5;border:1px solid #ccc;padding:6px;color:#000;';
+    abcBox.readOnly = true;
+    overlay.appendChild(abcBox);
+
+    const btnBar = document.createElement('div');
+    btnBar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ccc;padding:10px;display:flex;gap:8px;justify-content:center;z-index:10000;';
+    btnBar.innerHTML = `
+      <button onclick="window.print()" style="background:#000;color:#fff;border:none;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:4px;">🖨 Imprimir</button>
+      <button onclick="document.getElementById('pentagrama-overlay').remove();this.parentElement.remove();" style="background:#666;color:#fff;border:none;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:4px;">✕ Cerrar</button>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(btnBar);
+
+    // Style staff grey via CSS
+    const staffStyle = document.createElement('style');
+    staffStyle.textContent = '#abc-staff svg path, #abc-staff svg rect, #abc-staff svg ellipse, #abc-staff svg line, #abc-staff svg polygon, #abc-staff svg text { fill: #000 !important; stroke: #000 !important; }';
+    overlay.appendChild(staffStyle);
+
+    if (typeof ABCJS !== 'undefined') {
+      ABCJS.renderAbc('abc-staff', abc, { responsive: 'resize' });
+    } else {
+      staff.innerHTML = '<p style="color:#c00;font-size:12px;font-family:monospace;">ABCjs no disponible. Copiá el texto ABC de abajo para usarlo en otra app.</p>';
+    }
+  };
+
+  // Load ABCjs if not already loaded
+  if (typeof ABCJS === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.2.2/abcjs-basic-min.js';
+    script.onload = renderStaff;
+    script.onerror = renderStaff; // show overlay even if ABCjs fails
+    document.head.appendChild(script);
+  } else {
+    renderStaff();
+  }
+}
+
+// Store allResults globally for pentagrama access
+let allResults = [];
+
+function updateBpm(val) {
+  document.getElementById('bpm-display').textContent = val;
+  // If currently playing, restart to apply new BPM
+  if (currentStop) {
+    stopAll();
+    setTimeout(() => playAll(), 50);
+  }
+}
+
+function setView(mode) {
+  const output = document.getElementById('output');
+  const btnC = document.getElementById('btn-condensed');
+  const btnF = document.getElementById('btn-full');
+  if (mode === 'full') {
+    output.classList.add('full-view');
+    btnF.classList.add('active');
+    btnC.classList.remove('active');
+  } else {
+    output.classList.remove('full-view');
+    btnC.classList.add('active');
+    btnF.classList.remove('active');
+  }
+}
+
+
+
+// ─── TRANSPOSE ────────────────────────────────────────────────────────────────
+
+let transposeState = { semitones: 0, originalRaw: '' };
+
+// Prefer flat notation for keys that conventionally use flats
+const FLAT_KEYS = new Set(['F','Bb','Eb','Ab','Db','Gb']);
+
+function preferFlat(idx) {
+  // If NOTES_FLAT[idx] contains 'b', check if we should use it
+  const flat = NOTES_FLAT[idx];
+  const sharp = NOTES_SHARP[idx];
+  // Always prefer flat for flat keys
+  return flat;
+}
+
+function transposeChordString(raw, semitones) {
+  if (semitones === 0) return raw;
+  const match = raw.trim().match(/^([A-G][b#]?)(.*)/);
+  if (!match) return raw;
+  const rootRaw = match[1];
+  const quality = match[2];
+  const norm = ENHARMONICS[rootRaw] || rootRaw;
+  const idx = NOTES_SHARP.indexOf(norm);
+  if (idx === -1) return raw;
+  const newIdx = ((idx + semitones) % 12 + 12) % 12;
+
+  // Choose flat or sharp based on original notation + destination
+  const originalWasFlat = rootRaw.includes('b');
+  const sharp = NOTES_SHARP[newIdx];
+  const flat = NOTES_FLAT[newIdx];
+  // If note has no accidental in both arrays it's the same
+  let newRoot;
+  if (sharp === flat) {
+    newRoot = sharp;
+  } else if (originalWasFlat) {
+    newRoot = flat;
+  } else {
+    // Default: use flat for conventionally flat notes, sharp otherwise
+    newRoot = flat.includes('b') ? flat : sharp;
+  }
+  return newRoot + quality;
+}
+
+function transposeProgression(raw, semitones) {
+  if (semitones === 0) return raw;
+  // Split preserving separators
+  return raw.replace(/([A-G][b#]?[^\s\/|]*)/g, m => transposeChordString(m, semitones));
+}
+
+function toggleTranspose() {
+  const area = document.getElementById('transpose-area');
+  const isVisible = area.classList.contains('visible');
+  if (!isVisible) {
+    transposeState.originalRaw = document.getElementById('input').value;
+    transposeState.semitones = 0;
+    document.getElementById('semitone-val').textContent = '0';
+    document.getElementById('target-key').value = '';
+    updateTransposePreview();
+  }
+  area.classList.toggle('visible');
+}
+
+function stepTranspose(delta) {
+  transposeState.semitones = ((transposeState.semitones + delta + 12) % 24) - 12;
+  // keep in -11..+11
+  if (transposeState.semitones > 11) transposeState.semitones -= 12;
+  if (transposeState.semitones < -11) transposeState.semitones += 12;
+  document.getElementById('semitone-val').textContent =
+    (transposeState.semitones > 0 ? '+' : '') + transposeState.semitones;
+  document.getElementById('target-key').value = '';
+  updateTransposePreview();
+}
+
+function setTargetKey(targetNote) {
+  if (!targetNote) return;
+  const raw = transposeState.originalRaw;
+  // Find first chord root in original progression
+  const match = raw.match(/([A-G][b#]?)/);
+  if (!match) return;
+  const firstRoot = match[1];
+  const norm = ENHARMONICS[firstRoot] || firstRoot;
+  const fromIdx = NOTES_SHARP.indexOf(norm);
+  const toNorm = ENHARMONICS[targetNote] || targetNote;
+  const toIdx = NOTES_SHARP.indexOf(toNorm);
+  if (fromIdx === -1 || toIdx === -1) return;
+  let semitones = (toIdx - fromIdx + 12) % 12;
+  if (semitones > 6) semitones -= 12; // prefer shorter path
+  transposeState.semitones = semitones;
+  document.getElementById('semitone-val').textContent =
+    (semitones > 0 ? '+' : '') + semitones;
+  updateTransposePreview();
+}
+
+function updateTransposePreview() {
+  const preview = document.getElementById('transpose-preview');
+  const transposed = transposeProgression(transposeState.originalRaw, transposeState.semitones);
+  if (transposeState.semitones === 0) {
+    preview.innerHTML = '<span style="color:var(--dim)">sin cambio</span>';
+  } else {
+    preview.innerHTML = `→ <span class="prog">${transposed}</span>`;
+  }
+}
+
+function applyTranspose() {
+  const transposed = transposeProgression(transposeState.originalRaw, transposeState.semitones);
+  document.getElementById('input').value = transposed;
+  // Update originalRaw so further steps are relative to new value
+  transposeState.originalRaw = transposed;
+  transposeState.semitones = 0;
+  document.getElementById('semitone-val').textContent = '0';
+  document.getElementById('target-key').value = '';
+  updateTransposePreview();
+  document.getElementById('transpose-area').classList.remove('visible');
+  document.getElementById('btn-transpose').style.display = '';
+  analyze();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('input');
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) analyze();
+  });
+  input.addEventListener('paste', () => {
+    setTimeout(sanitizeAndShow, 10); // after paste completes
+  });
+  document.getElementById('swing-chk').addEventListener('change', function() {
+    document.getElementById('swing-label').textContent = this.checked ? 'Swing' : 'Recto';
+  });
+});</script>
+
+// ── Module 2: auto-load progression from URL ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const prog = params.get('prog');
+  if (prog) {
+    window.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('input');
+      if (input) {
+        input.value = decodeURIComponent(prog);
+        setTimeout(() => analyze(), 100);
+      }
+    });
+  }
+})();
+</body>
+</html>
