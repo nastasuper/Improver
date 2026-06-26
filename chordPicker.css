@@ -1,0 +1,205 @@
+/* ── Chord Picker Component ── */
+#cp-root {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  background: #000;
+  padding: 0;
+}
+#cp-root.cp-active { display: flex; }
+
+/* ── PROGRESIÓN CONSTRUIDA ── */
+#cp-root .built-label {
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+
+#cp-root .built-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    min-height: 46px;
+    align-items: center;
+  }
+#cp-root .built-row::-webkit-scrollbar { display: none; }
+
+#cp-root .built-tile {
+    flex-shrink: 0;
+    background: #0f0f0f;
+    border: 1px solid #252525;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-family: var(--mono);
+    color: var(--amber);
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+#cp-root .built-tile:active { opacity: 0.7; }
+#cp-root .built-tile.active-tile { border-color: var(--amber); }
+#cp-root .built-sep {
+    flex-shrink: 0;
+    color: #2a2a2a;
+    font-size: 22px;
+    font-family: var(--mono);
+    padding: 0 2px;
+    cursor: pointer;
+  }
+#cp-root .built-empty {
+    font-size: 12px;
+    color: #2a2a2a;
+    font-family: var(--mono);
+    padding: 4px 0;
+  }
+
+  /* ── CARTA GRANDE ── */
+#cp-root .card-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+  }
+#cp-root .card-3d {
+    perspective: 700px;
+  }
+#cp-root .card {
+    width: 150px;
+    height: 88px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(.4,0,.2,1);
+    cursor: pointer;
+  }
+#cp-root .card.flipped { transform: rotateY(180deg); }
+#cp-root .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 1.5px solid #2a2a2a;
+    background: #0d0d0d;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.6);
+  }
+#cp-root .card-face.back {
+    transform: rotateY(180deg);
+    border-color: var(--amber);
+    background: #100e04;
+  }
+#cp-root .card-note {
+    font-size: 30px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--amber);
+    line-height: 1;
+  }
+#cp-root .card-type {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--dim);
+  }
+#cp-root .card-empty .card-note { color: #2a2a2a; }
+
+  /* ── SEPARADOR ── */
+#cp-root .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 -16px;
+  }
+
+  /* ── NOTAS ── */
+#cp-root .section-label {
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+#cp-root .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 5px;
+  }
+#cp-root .note-btn {
+    padding: 11px 4px;
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--dim);
+    background: #080808;
+    border: 1px solid #1a1a1a;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+#cp-root .note-btn:active { opacity: 0.6; }
+#cp-root .note-btn.selected {
+    color: var(--amber);
+    border-color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  /* ── TIPOS ── */
+#cp-root .types-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+#cp-root .type-btn {
+    padding: 10px 4px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: #444;
+    background: #060606;
+    border: 1px solid #161616;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+#cp-root .type-btn:active { opacity: 0.6; }
+#cp-root .type-btn.selected {
+    color: var(--blue);
+    border-color: var(--blue);
+    background: rgba(74,140,200,0.1);
+  }
+
+  /* ── ACCIONES ── */
+#cp-root .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1.4fr;
+    gap: 6px;
+  }
+#cp-root .act-btn {
+    padding: 11px 4px;
+    font-size: 11px;
+    font-family: var(--sans);
+    border-radius: var(--radius-sm);
+    border: 1px solid #1a1a1a;
+    color: var(--dim);
+    background: #060606;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+#cp-root .act-btn:active { opacity: 0.6; }
+#cp-root .act-sep { color: #444; }
+#cp-root .act-del { color: var(--red); border-color: #2a1010; }
+#cp-root .act-done {
+    color: #000;
+    background: var(--amber);
+    border-color: var(--amber);
+    font-weight: 600;
+    font-size: 12px;
+  }
