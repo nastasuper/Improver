@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Chord Picker Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  
+  :root {
+    --bg: #000;
+    --surface: #0a0a0a;
+    --border: #1e1e1e;
+    --text: #e8e8e8;
+    --dim: #555;
+    --amber: #c8a44a;
+    --amber-dim: rgba(200,164,74,0.12);
+    --blue: #4a8cc8;
+    --red: #c84a4a;
+    --mono: 'Courier New', monospace;
+    --sans: -apple-system, sans-serif;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 16px;
+    gap: 14px;
+    overflow-x: hidden;
+  }
+
+  /* ── PROGRESIÓN CONSTRUIDA ── */
+  .built-label {
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+
+  .built-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    min-height: 46px;
+    align-items: center;
+  }
+  .built-row::-webkit-scrollbar { display: none; }
+
+  .built-tile {
+    flex-shrink: 0;
+    background: #0f0f0f;
+    border: 1px solid #252525;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-family: var(--mono);
+    color: var(--amber);
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .built-tile:active { opacity: 0.7; }
+  .built-tile.active-tile { border-color: var(--amber); }
+  .built-sep {
+    flex-shrink: 0;
+    color: #2a2a2a;
+    font-size: 22px;
+    font-family: var(--mono);
+    padding: 0 2px;
+    cursor: pointer;
+  }
+  .built-empty {
+    font-size: 12px;
+    color: #2a2a2a;
+    font-family: var(--mono);
+    padding: 4px 0;
+  }
+
+  /* ── CARTA GRANDE ── */
+  .card-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .card-3d {
+    perspective: 700px;
+  }
+  .card {
+    width: 150px;
+    height: 88px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(.4,0,.2,1);
+    cursor: pointer;
+  }
+  .card.flipped { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 1.5px solid #2a2a2a;
+    background: #0d0d0d;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.6);
+  }
+  .card-face.back {
+    transform: rotateY(180deg);
+    border-color: var(--amber);
+    background: #100e04;
+  }
+  .card-note {
+    font-size: 30px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--amber);
+    line-height: 1;
+  }
+  .card-type {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--dim);
+  }
+  .card-empty .card-note { color: #2a2a2a; }
+
+  /* ── SEPARADOR ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 -16px;
+  }
+
+  /* ── NOTAS ── */
+  .section-label {
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 5px;
+  }
+  .note-btn {
+    padding: 11px 4px;
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--dim);
+    background: #080808;
+    border: 1px solid #1a1a1a;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .note-btn:active { opacity: 0.6; }
+  .note-btn.selected {
+    color: var(--amber);
+    border-color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  /* ── TIPOS ── */
+  .types-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  .type-btn {
+    padding: 10px 4px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: #444;
+    background: #060606;
+    border: 1px solid #161616;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .type-btn:active { opacity: 0.6; }
+  .type-btn.selected {
+    color: var(--blue);
+    border-color: var(--blue);
+    background: rgba(74,140,200,0.1);
+  }
+
+  /* ── ACCIONES ── */
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1.4fr;
+    gap: 6px;
+  }
+  .act-btn {
+    padding: 11px 4px;
+    font-size: 11px;
+    font-family: var(--sans);
+    border-radius: var(--radius-sm);
+    border: 1px solid #1a1a1a;
+    color: var(--dim);
+    background: #060606;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .act-btn:active { opacity: 0.6; }
+  .act-sep { color: #444; }
+  .act-del { color: var(--red); border-color: #2a1010; }
+  .act-done {
+    color: #000;
+    background: var(--amber);
+    border-color: var(--amber);
+    font-weight: 600;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- PROGRESIÓN CONSTRUIDA -->
+<div>
+  <div class="built-label">Progresión</div>
+  <div class="built-row" id="built-row">
+    <span class="built-empty">Tocá una nota para empezar…</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- CARTA GRANDE -->
+<div class="card-area">
+  <div class="card-3d">
+    <div class="card card-empty" id="main-card">
+      <div class="card-face front">
+        <span class="card-note" id="front-note">?</span>
+        <span class="card-type" id="front-type">nota</span>
+      </div>
+      <div class="card-face back">
+        <span class="card-note" id="back-note">?</span>
+        <span class="card-type" id="back-type">tipo</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- NOTAS -->
+<div>
+  <div class="section-label">Nota</div>
+  <div class="notes-grid" id="notes-grid"></div>
+</div>
+
+<!-- TIPOS -->
+<div>
+  <div class="section-label">Tipo</div>
+  <div class="types-grid" id="types-grid"></div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ACCIONES -->
+<div class="actions">
+  <div class="act-btn act-sep" onclick="addSep()">/ Compás</div>
+  <div class="act-btn" onclick="addCurrent()" id="btn-add" style="opacity:0.35;pointer-events:none;">+ Agregar</div>
+  <div class="act-btn act-del" onclick="deleteLast()">⌫ Borrar</div>
+  <div class="act-btn act-done" onclick="cpDone()">✓ Listo</div>
+</div>
+
+<script>
+const NOTES = ['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const TYPES = ['maj7','m7','7','m7b5','dim','6','m6','9','7b9','7alt','sus4','aug'];
+
+let selectedNote = null;
+let selectedType = null;
+let tokens = [];
+let flipped = false;
+
+// Render notas
+const notesGrid = document.getElementById('notes-grid');
+NOTES.forEach(n => {
+  const btn = document.createElement('div');
+  btn.className = 'note-btn';
+  btn.textContent = n;
+  btn.onclick = () => selectNote(n);
+  notesGrid.appendChild(btn);
+});
+
+// Render tipos
+const typesGrid = document.getElementById('types-grid');
+TYPES.forEach(t => {
+  const btn = document.createElement('div');
+  btn.className = 'type-btn';
+  btn.textContent = t;
+  btn.onclick = () => selectType(t);
+  typesGrid.appendChild(btn);
+});
+
+function selectNote(note) {
+  selectedNote = note;
+  selectedType = null;
+
+  // Botones
+  document.querySelectorAll('.note-btn').forEach(b => b.classList.toggle('selected', b.textContent === note));
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+
+  // Carta — flip
+  const card = document.getElementById('main-card');
+  card.classList.remove('card-empty');
+  flipped = !flipped;
+  card.classList.toggle('flipped', flipped);
+  const noteEl = flipped ? 'back-note' : 'front-note';
+  const typeEl = flipped ? 'back-type' : 'front-type';
+  document.getElementById(noteEl).textContent = note;
+  document.getElementById(typeEl).textContent = 'tipo…';
+
+  // Btn agregar
+  document.getElementById('btn-add').style.opacity = '1';
+  document.getElementById('btn-add').style.pointerEvents = 'auto';
+}
+
+function selectType(type) {
+  if (!selectedNote) return;
+  selectedType = type;
+
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('selected', b.textContent === type));
+
+  // Carta — flip mostrando tipo
+  const card = document.getElementById('main-card');
+  flipped = !flipped;
+  card.classList.toggle('flipped', flipped);
+  const noteEl = flipped ? 'back-note' : 'front-note';
+  const typeEl = flipped ? 'back-type' : 'front-type';
+  document.getElementById(noteEl).textContent = selectedNote;
+  document.getElementById(typeEl).textContent = type;
+}
+
+function addCurrent() {
+  if (!selectedNote) return;
+  const chord = selectedNote + (selectedType || '');
+  tokens.push(chord);
+  selectedNote = null; selectedType = null;
+  document.querySelectorAll('.note-btn, .type-btn').forEach(b => b.classList.remove('selected', 'selected'));
+  
+  // Reset carta
+  const card = document.getElementById('main-card');
+  card.classList.add('card-empty');
+  flipped = false;
+  card.classList.remove('flipped');
+  document.getElementById('front-note').textContent = '?';
+  document.getElementById('front-type').textContent = 'nota';
+  document.getElementById('back-note').textContent = '?';
+  document.getElementById('back-type').textContent = 'tipo';
+  
+  document.getElementById('btn-add').style.opacity = '0.35';
+  document.getElementById('btn-add').style.pointerEvents = 'none';
+  renderBuilt();
+}
+
+function addSep() {
+  if (tokens.length && tokens[tokens.length-1] !== '|') {
+    tokens.push('|');
+    renderBuilt();
+  }
+}
+
+function deleteLast() {
+  if (!tokens.length) return;
+  tokens.pop();
+  if (tokens.length && tokens[tokens.length-1] === '|') tokens.pop();
+  renderBuilt();
+}
+
+function renderBuilt() {
+  const row = document.getElementById('built-row');
+  if (!tokens.length) {
+    row.innerHTML = '<span class="built-empty">Tocá una nota para empezar…</span>';
+    return;
+  }
+  row.innerHTML = tokens.map(t =>
+    t === '|'
+      ? '<span class="built-sep">/</span>'
+      : `<span class="built-tile">${t}</span>`
+  ).join('');
+  row.scrollLeft = row.scrollWidth;
+}
+
+function buildResult() {
+  const bars = []; let bar = [];
+  tokens.forEach(t => {
+    if (t === '|') { if (bar.length) { bars.push(bar.join(' ')); bar = []; } }
+    else bar.push(t);
+  });
+  if (bar.length) bars.push(bar.join(' '));
+  return bars.join(' / ');
+}
+
+function cpDone() {
+  window.parent.postMessage({ type: 'cp-done', prog: buildResult() }, '*');
+}
+
+function cpCancel() {
+  window.parent.postMessage({ type: 'cp-cancel' }, '*');
+}
+
+// Recibir progresión inicial desde el padre
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'cp-init' && e.data.prog) {
+    const raw = e.data.prog.trim();
+    tokens = [];
+    if (raw) {
+      raw.split(/\s*\/\s*/).forEach((bar, i) => {
+        if (i > 0) tokens.push('|');
+        bar.trim().split(/\s+/).forEach(t => { if (t) tokens.push(t); });
+      });
+    }
+    renderBuilt();
+  }
+});
+</script>
+</body>
+</html>
