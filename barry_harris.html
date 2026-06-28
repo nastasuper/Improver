@@ -5533,6 +5533,121 @@ document.addEventListener('DOMContentLoaded', () => {
      ══════════════════════════════════════════════════════════════════ -->
 <script>
 
+
+// ── DETECT TONAL CENTER V3 (experimento) ─────────────────────────────────────
+// Igual que el baseline pero reduce peso del V7 cuando no resuelve al I
+function scoreTonalCenterV3(bars, rootIdx, isMajor) {
+  const intervals = isMajor ? MAJOR_SCALE_INTERVALS : MINOR_SCALE_INTERVALS;
+  const chordTypes = isMajor ? MAJOR_CHORD_TYPES : MINOR_CHORD_TYPES;
+  let score = 0;
+  let tonicHits = 0;
+
+  const allChords = [];
+  bars.forEach(bar => bar.chords.forEach(chord => allChords.push(chord)));
+  const total = allChords.length;
+
+  // Detectar II-V-I completos (el V resuelve al I)
+  const iiVIndices = new Set();
+  const resolvedVIndices = new Set(); // V que SÍ resuelven al I
+  for (let i = 0; i < allChords.length - 1; i++) {
+    const a = allChords[i], b = allChords[i+1];
+    const intv = ((b.idx - a.idx) + 12) % 12;
+    if ((a.type === 'minor' || a.type === 'halfDim') &&
+        b.type === 'dominant' && (intv === 5 || intv === 7)) {
+      iiVIndices.add(i);
+      iiVIndices.add(i+1);
+    }
+  }
+  // V que resuelven al I esperado
+  for (let i = 0; i < allChords.length - 1; i++) {
+    const a = allChords[i], b = allChords[i+1];
+    const aRel = ((a.idx - rootIdx) + 12) % 12;
+    const bRel = ((b.idx - rootIdx) + 12) % 12;
+    const aDi = intervals.indexOf(aRel);
+    const bDi = intervals.indexOf(bRel);
+    // Si es el V (grado 4) y resuelve al I (grado 0)
+    if (aDi === 4 && bDi === 0 && a.type === 'dominant') {
+      resolvedVIndices.add(i);
+    }
+  }
+
+  allChords.forEach((chord, pos) => {
+    const rel = ((chord.idx - rootIdx) + 12) % 12;
+    const di = intervals.indexOf(rel);
+    if (di === -1) return;
+
+    const expectedType = chordTypes[di];
+    let pts = 0;
+
+    if (chord.type === expectedType) pts = 2;
+    else if (
+      (expectedType === 'major' && (chord.type === 'major6' || chord.type === 'dominant')) ||
+      (expectedType === 'minor' && chord.type === 'minor6') ||
+      (expectedType === 'dominant' && chord.type === 'major')
+    ) pts = 1;
+
+    if (pts === 0) return;
+
+    // ── AJUSTE V3: reducir peso del dominante sin resolución ──────────────────
+    if (di === 4 && chord.type === 'dominant') {
+      if (!resolvedVIndices.has(pos)) {
+        pts *= 0.3; // V7 sin resolución al I → penalizado
+      } else {
+        pts *= 1.5; // V7 con resolución → bonificado
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (iiVIndices.has(pos) && di !== 0) pts *= 0.4;
+
+    if (di === 0) {
+      tonicHits++;
+      if (pos === total - 1) {
+        pts += 12;
+        if (isMajor && (chord.type === 'major' || chord.type === 'major6')) pts += 8;
+        if (!isMajor && (chord.type === 'minor' || chord.type === 'minor6')) pts += 8;
+      }
+      if (pos > 0) {
+        const prev = allChords[pos - 1];
+        if (prev.type === 'dominant' && ((chord.idx - prev.idx + 12) % 12) === 5) pts += 3;
+      }
+    }
+
+    score += pts;
+  });
+
+  score += tonicHits * 1.5;
+  return { score, tonicHits };
+}
+
+function detectTonalCenterV3(bars) {
+  if (!bars || !bars.length) return null;
+  const allScores = [];
+  for (let root = 0; root < 12; root++) {
+    for (const isMajor of [true, false]) {
+      const { score, tonicHits } = scoreTonalCenterV3(bars, root, isMajor);
+      allScores.push({ rootIdx: root, isMajor, score, tonicHits });
+    }
+  }
+  allScores.sort((a, b) => b.score - a.score);
+  const best = allScores[0];
+  if (!best || best.score < 2) return null;
+  const rootName = NOTES_FLAT[best.rootIdx];
+  return { rootName, isMajor: best.isMajor, score: best.score };
+}
+
+function _labClassifyV3(prog) {
+  try {
+    const bars = parseInput(prog);
+    if (!bars.length) return { mode: 'error', key: null };
+    const tc = detectTonalCenterV3(bars);
+    if (!tc) return { mode: 'other', key: null };
+    return { mode: tc.isMajor ? 'major' : 'minor', key: tc.rootName };
+  } catch(e) {
+    return { mode: 'error', key: null };
+  }
+}
+
 // ── TONAL FILTER V2 ──────────────────────────────────────────────────────────
 // Clasificador de polaridad tonal: MAJOR / MINOR / AMBIGUOUS
 // Corre en paralelo con detectTonalCenter() — no lo reemplaza
@@ -5734,13 +5849,15 @@ function runLab() {
   const results = LAB_COLLECTION.map(item => {
     const got = _labClassify(item.prog);
     const v2 = TonalFilterV2(item.prog);
+    const v3 = _labClassifyV3(item.prog);
+    const v3ok = v3.mode === item.expected.mode && (item.expected.key === null || v3.key === item.expected.key);
     const ok = got.mode === item.expected.mode &&
       (item.expected.key === null || got.key === item.expected.key);
     // V2: comparar solo modo (MAJOR/MINOR/AMBIGUOUS vs major/minor/other)
     const expMode = item.expected.mode === 'other' ? 'ambiguous' : item.expected.mode;
     const v2ok = v2.mode === expMode;
     const agree = got.mode === v2.mode || (got.mode === 'other' && v2.mode === 'ambiguous');
-    return { ...item, got, v2, ok, v2ok, agree };
+    return { ...item, got, v2, v3, ok, v2ok, v3ok, agree };
   });
 
   const total = results.length;
@@ -5748,6 +5865,8 @@ function runLab() {
   const errors = total - hits;
   const pct = ((hits / total) * 100).toFixed(1);
   const v2hits = results.filter(r => r.v2ok).length;
+  const v3hits = results.filter(r => r.v3ok).length;
+  const v3pct = ((v3hits / total) * 100).toFixed(1);
   const v2pct = ((v2hits / total) * 100).toFixed(1);
   const agreements = results.filter(r => r.agree).length;
   const agreePct = ((agreements / total) * 100).toFixed(1);
@@ -5775,6 +5894,13 @@ function runLab() {
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v2hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v2pct)>=80?'#4a9':parseFloat(v2pct)>=60?'#c8a44a':'#c84a4a'};">${v2pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
   html += `</div>`;
+  // V3
+  html += `<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">V3 (ajuste dominante)</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#4a9;">${v3hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Aciertos</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v3hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v3pct)>=80?'#4a9':parseFloat(v3pct)>=60?'#c8a44a':'#c84a4a'};">${v3pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
+  html += `</div>`;
   // Agreement rate
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;margin-bottom:16px;">`;
   html += `<div style="font-size:11px;color:#555;margin-bottom:4px;">Agreement rate (ambos sistemas coinciden)</div>`;
@@ -5784,17 +5910,20 @@ function runLab() {
   if (failures.length) {
     html += `<div style="margin-bottom:8px;font-size:11px;color:#c84a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Errores baseline (${failures.length})</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">`;
-    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Obtenido</th><th style="padding:4px 8px;">V2</th></tr>`;
+    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th></tr>`;
     failures.forEach(f => {
       const exp = f.expected.key ? `${f.expected.key} ${f.expected.mode}` : f.expected.mode;
       const got = f.got.key ? `${f.got.key} ${f.got.mode}` : f.got.mode;
       const v2r = f.v2.mode + (f.v2.confidence ? ' (' + (f.v2.confidence*100).toFixed(0) + '%)' : '');
+      const v3r = f.v3.key ? f.v3.key + ' ' + f.v3.mode : f.v3.mode;
+      const v3color = f.v3ok ? '#4a9' : '#c84a4a';
       const v2color = f.v2ok ? '#4a9' : '#c84a4a';
       html += `<tr style="border-bottom:1px solid #1a1a1a;">`;
       html += `<td style="padding:6px 8px;color:#aaa;">${f.name}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:#4a9;">${exp}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:#c84a4a;">${got}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v2color};">${v2r}</td>`;
+      html += `<td style="padding:6px 8px;text-align:center;color:${v3color};">${v3r}</td>`;
       html += `</tr>`;
     });
     html += `</table>`;
