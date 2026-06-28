@@ -5992,6 +5992,126 @@ function _labClassifyV6(prog) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DECISION ENGINE — módulo experimental LAB (no toca producción)
+// 3 capas: KEY / MODE / STRUCTURE
+// ══════════════════════════════════════════════════════════════════════════════
+
+function _deClassifyStructure(bars, allChords) {
+  // Detecta tipo de organización armónica
+  const total = allChords.length;
+  if (total === 0) return 'empty';
+
+  // Blues: dominantes en los 3 centros (I7, IV7, V7) con patrón de 12 compases
+  const domRoots = {};
+  allChords.forEach(c => {
+    if (c.type === 'dominant') domRoots[c.idx] = (domRoots[c.idx] || 0) + 1;
+  });
+  const domCenters = Object.keys(domRoots).length;
+  const totalDoms = allChords.filter(c => c.type === 'dominant').length;
+  const domRatio = totalDoms / total;
+  if (domRatio >= 0.4 && domCenters >= 2) return 'blues';
+
+  // Modal/static: 1-2 acordes distintos, sin dominantes
+  const uniqueRoots = new Set(allChords.map(c => c.idx)).size;
+  if (uniqueRoots <= 2 && totalDoms === 0) return 'modal_static';
+
+  // Turnaround/cycle: patrón cíclico de 4 acordes que se repite
+  if (total >= 4 && total <= 8) {
+    const half = Math.floor(total / 2);
+    let isRepeat = true;
+    for (let i = 0; i < half; i++) {
+      if (allChords[i].idx !== allChords[i + half]?.idx) { isRepeat = false; break; }
+    }
+    if (isRepeat) return 'turnaround_cycle';
+  }
+
+  // Functional tonal: tiene II-V-I
+  let hasIIVI = false;
+  for (let i = 0; i < allChords.length - 2; i++) {
+    const a = allChords[i], b = allChords[i+1], c = allChords[i+2];
+    const ab = ((b.idx - a.idx) + 12) % 12;
+    const bc = ((c.idx - b.idx) + 12) % 12;
+    if ((a.type === 'minor' || a.type === 'halfDim') &&
+        b.type === 'dominant' && ab === 5 &&
+        (c.type === 'major' || c.type === 'minor' || c.type === 'major6') && bc === 5) {
+      hasIIVI = true; break;
+    }
+  }
+  if (hasIIVI) return 'functional_tonal';
+
+  // Multi-center: muchos dominantes con centros distintos
+  if (domCenters >= 3 && domRatio >= 0.25) return 'multi_center';
+
+  return 'functional_tonal'; // default
+}
+
+function DecisionEngine(prog) {
+  try {
+    const bars = parseInput(prog);
+    if (!bars.length) return { key: null, mode: 'ambiguous', structure: 'empty', confidence: 0 };
+
+    const allChords = [];
+    bars.forEach(bar => bar.chords.forEach(chord => allChords.push(chord)));
+
+    // ── CAPA ESTRUCTURAL ──
+    const structure = _deClassifyStructure(bars, allChords);
+
+    // ── CAPA DE POLARIDAD (V2) ──
+    const v2 = TonalFilterV2(prog);
+
+    // Umbral adaptativo según estructura
+    let ambiguityThreshold = 0.20;
+    if (structure === 'blues') ambiguityThreshold = 0.50; // blues → exigir más evidencia
+    if (structure === 'turnaround_cycle') ambiguityThreshold = 0.40;
+    if (structure === 'modal_static') ambiguityThreshold = 0.60;
+
+    const mode = v2.confidence < ambiguityThreshold ? 'ambiguous' : v2.mode;
+
+    // ── CAPA TONAL (KEY) ──
+    let key = null;
+    if (mode !== 'ambiguous') {
+      // Buscar key solo si hay polaridad clara
+      const baselineScores = [];
+      for (let root = 0; root < 12; root++) {
+        const isMajor = mode === 'major';
+        const { score } = scoreTonalCenter(bars, root, isMajor);
+        baselineScores.push({ rootIdx: root, isMajor, score });
+      }
+      baselineScores.sort((a, b) => b.score - a.score);
+      const best = baselineScores[0];
+      const second = baselineScores[1];
+      const maxScore = best.score || 1;
+      const margin = (best.score - second.score) / maxScore;
+
+      // Closure confirma
+      const closure = cadenceClosureDetector(bars);
+      const closureConfirms = closure.hasClosure && closure.structuralRoot === best.rootIdx;
+
+      // Key válida solo si hay margen suficiente o closure
+      const keyThreshold = structure === 'functional_tonal' ? 0.10 : 0.20;
+      if (margin >= keyThreshold || closureConfirms) {
+        key = NOTES_FLAT[best.rootIdx];
+      }
+    }
+
+    return { key, mode, structure, confidence: v2.confidence };
+  } catch(e) {
+    return { key: null, mode: 'ambiguous', structure: 'error', confidence: 0 };
+  }
+}
+
+function _labClassifyDE(prog) {
+  const result = DecisionEngine(prog);
+  return {
+    mode: result.mode === 'ambiguous' ? 'other' : result.mode,
+    key: result.key,
+    structure: result.structure,
+    confidence: result.confidence,
+  };
+}
+
 // ── TONAL FILTER V2 ──────────────────────────────────────────────────────────
 // Clasificador de polaridad tonal: MAJOR / MINOR / AMBIGUOUS
 // Corre en paralelo con detectTonalCenter() — no lo reemplaza
@@ -6200,15 +6320,16 @@ function runLab() {
     const v5 = _labClassifyV5(item.prog);
     const v5ok = v5.mode === item.expected.mode && (item.expected.key === null || v5.key === item.expected.key);
     const v6 = _labClassifyV6(item.prog);
-    // V6: correcto si modo coincide Y (key esperada null O key coincide O nivel 2 con modo correcto)
     const v6ok = v6.mode === item.expected.mode && (item.expected.key === null || v6.key === item.expected.key || v6.level === 2);
+    const de = _labClassifyDE(item.prog);
+    const deok = de.mode === item.expected.mode && (item.expected.key === null || de.key === item.expected.key || de.key === null);
     const ok = got.mode === item.expected.mode &&
       (item.expected.key === null || got.key === item.expected.key);
     // V2: comparar solo modo (MAJOR/MINOR/AMBIGUOUS vs major/minor/other)
     const expMode = item.expected.mode === 'other' ? 'ambiguous' : item.expected.mode;
     const v2ok = v2.mode === expMode;
     const agree = got.mode === v2.mode || (got.mode === 'other' && v2.mode === 'ambiguous');
-    return { ...item, got, v2, v3, v4, v5, v6, ok, v2ok, v3ok, v4ok, v5ok, v6ok, agree };
+    return { ...item, got, v2, v3, v4, v5, v6, de, ok, v2ok, v3ok, v4ok, v5ok, v6ok, deok, agree };
   });
 
   const total = results.length;
@@ -6227,6 +6348,11 @@ function runLab() {
   const v6l1 = results.filter(r => r.v6.level === 1).length;
   const v6l2 = results.filter(r => r.v6.level === 2).length;
   const v6l3 = results.filter(r => r.v6.level === 3).length;
+  const dehits = results.filter(r => r.deok).length;
+  const depct = ((dehits / total) * 100).toFixed(1);
+  const deNullCount = results.filter(r => r.de.key === null && r.de.mode !== 'other').length;
+  const deStructures = {};
+  results.forEach(r => { deStructures[r.de.structure] = (deStructures[r.de.structure] || 0) + 1; });
   const v2pct = ((v2hits / total) * 100).toFixed(1);
   const agreements = results.filter(r => r.agree).length;
   const agreePct = ((agreements / total) * 100).toFixed(1);
@@ -6287,16 +6413,74 @@ function runLab() {
   html += `<div style="background:#0a0a14;padding:6px;border-radius:4px;text-align:center;color:#c8a44a;">Nivel 2 (pol): ${v6l2}</div>`;
   html += `<div style="background:#0a0a14;padding:6px;border-radius:4px;text-align:center;color:#555;">Nivel 3 (null): ${v6l3}</div>`;
   html += `</div>`;
+  // Decision Engine
+  html += `<div style="font-size:10px;color:#4a8cc8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;font-weight:700;">Decision Engine (KEY / MODE / STRUCTURE)</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#4a9;">${dehits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Aciertos</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-dehits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(depct)>=80?'#4a9':parseFloat(depct)>=60?'#c8a44a':'#c84a4a'};">${depct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
+  html += `</div>`;
+  html += `<div style="background:#0a0a14;padding:8px;border-radius:4px;margin-bottom:8px;font-size:10px;color:#555;">`;
+  html += `KEY=null: <span style="color:#c8a44a;">${deNullCount}</span> &nbsp;|&nbsp; `;
+  Object.entries(deStructures).forEach(([k,v]) => { html += `${k}: <span style="color:#4a8cc8;">${v}</span> &nbsp;|&nbsp; `; });
+  html += `</div>`;
+  // Decision Engine vs V2 comparison
+  html += `<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:16px;">`;
+  html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">DE key</th><th style="padding:4px 8px;">DE structure</th></tr>`;
+  results.forEach(r => {
+    const v2match = r.v2ok;
+    const dematch = r.deok;
+    if (v2match && dematch) return; // solo mostrar divergencias y errores
+    const exp = r.expected.key ? r.expected.key + ' ' + r.expected.mode : r.expected.mode;
+    const v2r = r.v2.mode + (r.v2.confidence ? ' (' + (r.v2.confidence*100).toFixed(0) + '%)' : '');
+    const der = (r.de.key ? r.de.key + ' ' : '') + r.de.mode;
+    html += `<tr style="border-bottom:1px solid #111;">`;
+    html += `<td style="padding:5px 8px;color:#aaa;">${r.name}</td>`;
+    html += `<td style="padding:5px 8px;text-align:center;color:#4a9;">${exp}</td>`;
+    html += `<td style="padding:5px 8px;text-align:center;color:${v2match?'#4a9':'#c84a4a'};">${v2r}</td>`;
+    html += `<td style="padding:5px 8px;text-align:center;color:${dematch?'#4a9':'#c84a4a'};">${der}</td>`;
+    html += `<td style="padding:5px 8px;text-align:center;color:#4a8cc8;font-size:9px;">${r.de.structure}</td>`;
+    html += `</tr>`;
+  });
+  html += `</table>`;
   // Agreement rate
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;margin-bottom:16px;">`;
   html += `<div style="font-size:11px;color:#555;margin-bottom:4px;">Agreement rate (ambos sistemas coinciden)</div>`;
   html += `<div style="font-size:22px;font-weight:700;color:#c8a44a;">${agreePct}%</div>`;
   html += `</div>`;
 
+  // Breakdown errores V2
+  const v2typeA = v2failures.filter(r => r.v2.mode === 'ambiguous'); // over-abstention
+  const v2typeB = v2failures.filter(r => r.v2.mode !== 'ambiguous'); // wrong decision
+
+  html += `<div style="margin-bottom:8px;font-size:11px;color:#c8a44a;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Breakdown errores V2 (${v2failures.length})</div>`;
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;border-left:3px solid #c8a44a;"><div style="font-size:20px;font-weight:700;color:#c8a44a;">${v2typeA.length}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Type A (over-abstention)</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;border-left:3px solid #c84a4a;"><div style="font-size:20px;font-weight:700;color:#c84a4a;">${v2typeB.length}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Type B (wrong decision)</div></div>`;
+  html += `</div>`;
+
+  if (v2failures.length) {
+    html += `<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:20px;">`;
+    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">Tipo</th></tr>`;
+    v2failures.forEach(f => {
+      const exp = f.expected.key ? f.expected.key + ' ' + f.expected.mode : f.expected.mode;
+      const v2r = f.v2.key ? f.v2.key + ' ' + f.v2.mode : f.v2.mode;
+      const errType = f.v2.mode === 'ambiguous' ? 'A' : 'B';
+      const typeColor = errType === 'A' ? '#c8a44a' : '#c84a4a';
+      html += `<tr style="border-bottom:1px solid #111;">`;
+      html += `<td style="padding:5px 8px;color:#aaa;">${f.name}</td>`;
+      html += `<td style="padding:5px 8px;text-align:center;color:#4a9;">${exp}</td>`;
+      html += `<td style="padding:5px 8px;text-align:center;color:#c84a4a;">${v2r}</td>`;
+      html += `<td style="padding:5px 8px;text-align:center;font-weight:700;color:${typeColor};">T${errType}</td>`;
+      html += `</tr>`;
+    });
+    html += `</table>`;
+  }
+
   if (failures.length) {
     html += `<div style="margin-bottom:8px;font-size:11px;color:#c84a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Errores baseline (${failures.length})</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">`;
-    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th><th style="padding:4px 8px;">V4</th><th style="padding:4px 8px;">V5</th><th style="padding:4px 8px;">V6</th></tr>`;
+    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th><th style="padding:4px 8px;">V4</th><th style="padding:4px 8px;">V5</th><th style="padding:4px 8px;">V6</th><th style="padding:4px 8px;">DE</th></tr>`;
     failures.forEach(f => {
       const exp = f.expected.key ? `${f.expected.key} ${f.expected.mode}` : f.expected.mode;
       const got = f.got.key ? `${f.got.key} ${f.got.mode}` : f.got.mode;
@@ -6309,6 +6493,8 @@ function runLab() {
       const v5color = f.v5ok ? '#4a9' : '#c84a4a';
       const v6r = (f.v6.key ? f.v6.key + ' ' : '') + f.v6.mode + ' [L' + f.v6.level + ']';
       const v6color = f.v6ok ? '#4a9' : '#c84a4a';
+      const der2 = (f.de.key ? f.de.key + ' ' : '') + f.de.mode;
+      const decolor = f.deok ? '#4a9' : '#c84a4a';
       const v2color = f.v2ok ? '#4a9' : '#c84a4a';
       html += `<tr style="border-bottom:1px solid #1a1a1a;">`;
       html += `<td style="padding:6px 8px;color:#aaa;">${f.name}</td>`;
@@ -6319,6 +6505,7 @@ function runLab() {
       html += `<td style="padding:6px 8px;text-align:center;color:${v4color};">${v4r}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v5color};">${v5r}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v6color};font-size:10px;">${v6r}</td>`;
+      html += `<td style="padding:6px 8px;text-align:center;color:${decolor};font-size:10px;">${der2}</td>`;
       html += `</tr>`;
     });
     html += `</table>`;
