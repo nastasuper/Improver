@@ -5648,6 +5648,162 @@ function _labClassifyV3(prog) {
   }
 }
 
+
+// ── DETECT TONAL CENTER V4 (experimento) ─────────────────────────────────────
+// Cadence Closure Detector: distingue dominantes estructurales vs secundarios
+// NO modifica el motor ni scoreTonalCenter()
+
+function cadenceClosureDetector(bars) {
+  // Aplana todos los acordes con posición
+  const allChords = [];
+  bars.forEach(bar => bar.chords.forEach(chord => allChords.push(chord)));
+  const total = allChords.length;
+
+  // Mapa de resoluciones: para cada posición, ¿resuelve a qué raíz?
+  const resolutions = {}; // pos → rootIdx resuelto
+
+  for (let i = 0; i < allChords.length - 1; i++) {
+    const a = allChords[i], b = allChords[i+1];
+    const intv = ((b.idx - a.idx) + 12) % 12;
+    // V→I: dominante resuelve una quinta abajo (intv=5) o semitono (intv=1, tritone sub)
+    if (a.type === 'dominant' && (intv === 5 || intv === 1)) {
+      resolutions[i] = b.idx; // este dominante resuelve al rootIdx de b
+    }
+  }
+
+  // Jerarquía: contar cuántas veces resuelve a cada centro
+  const closureCount = {}; // rootIdx → count
+  Object.values(resolutions).forEach(rootIdx => {
+    closureCount[rootIdx] = (closureCount[rootIdx] || 0) + 1;
+  });
+
+  // El dominante estructural es el que más veces resuelve
+  let structuralRoot = null, maxClosures = 0;
+  Object.entries(closureCount).forEach(([root, count]) => {
+    if (count > maxClosures) { maxClosures = count; structuralRoot = parseInt(root); }
+  });
+
+  // Verificar si el acorde final confirma el centro
+  const lastChord = allChords[total - 1];
+  const finalConfirms = lastChord && structuralRoot !== null &&
+    lastChord.idx === structuralRoot &&
+    (lastChord.type === 'major' || lastChord.type === 'minor' || lastChord.type === 'major6');
+
+  // Calcular ratio de clausura: resoluciones / total de dominantes
+  const totalDominants = allChords.filter(c => c.type === 'dominant').length;
+  const closureRatio = totalDominants > 0 ? Object.keys(resolutions).length / totalDominants : 0;
+
+  return {
+    structuralRoot,       // raíz del centro tonal detectado por clausuras
+    maxClosures,          // cantidad de resoluciones al centro
+    closureRatio,         // qué proporción de dominantes resuelven
+    finalConfirms,        // si el último acorde confirma el centro
+    hasClosure: maxClosures >= 1 && closureRatio >= 0.3,
+  };
+}
+
+function scoreTonalCenterV4(bars, rootIdx, isMajor, closureData) {
+  const intervals = isMajor ? MAJOR_SCALE_INTERVALS : MINOR_SCALE_INTERVALS;
+  const chordTypes = isMajor ? MAJOR_CHORD_TYPES : MINOR_CHORD_TYPES;
+  let score = 0;
+  let tonicHits = 0;
+
+  const allChords = [];
+  bars.forEach(bar => bar.chords.forEach(chord => allChords.push(chord)));
+  const total = allChords.length;
+
+  // II-V detection (igual que baseline)
+  const iiVIndices = new Set();
+  for (let i = 0; i < allChords.length - 1; i++) {
+    const a = allChords[i], b = allChords[i+1];
+    const intv = ((b.idx - a.idx) + 12) % 12;
+    if ((a.type === 'minor' || a.type === 'halfDim') &&
+        b.type === 'dominant' && (intv === 5 || intv === 7)) {
+      iiVIndices.add(i); iiVIndices.add(i+1);
+    }
+  }
+
+  allChords.forEach((chord, pos) => {
+    const rel = ((chord.idx - rootIdx) + 12) % 12;
+    const di = intervals.indexOf(rel);
+    if (di === -1) return;
+
+    const expectedType = chordTypes[di];
+    let pts = 0;
+
+    if (chord.type === expectedType) pts = 2;
+    else if (
+      (expectedType === 'major' && (chord.type === 'major6' || chord.type === 'dominant')) ||
+      (expectedType === 'minor' && chord.type === 'minor6') ||
+      (expectedType === 'dominant' && chord.type === 'major')
+    ) pts = 1;
+
+    if (pts === 0) return;
+    if (iiVIndices.has(pos) && di !== 0) pts *= 0.4;
+
+    // ── AJUSTE V4: Cadence Closure ──────────────────────────────────────────
+    if (di === 4 && chord.type === 'dominant') {
+      // Solo el dominante que resuelve al rootIdx que evaluamos vale más
+      if (closureData.structuralRoot === rootIdx) {
+        pts *= 2.0; // dominante estructural confirmado → bonificado fuerte
+      } else {
+        pts *= 0.2; // dominante a otro centro → muy penalizado
+      }
+    }
+    // Si hay clausura y el rootIdx no es el centro estructural → penalizar tónica
+    if (di === 0 && closureData.hasClosure && closureData.structuralRoot !== rootIdx) {
+      pts *= 0.3;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    if (di === 0) {
+      tonicHits++;
+      if (pos === total - 1) {
+        pts += 12;
+        if (isMajor && (chord.type === 'major' || chord.type === 'major6')) pts += 8;
+        if (!isMajor && (chord.type === 'minor' || chord.type === 'minor6')) pts += 8;
+      }
+      if (pos > 0) {
+        const prev = allChords[pos - 1];
+        if (prev.type === 'dominant' && ((chord.idx - prev.idx + 12) % 12) === 5) pts += 3;
+      }
+    }
+
+    score += pts;
+  });
+
+  score += tonicHits * 1.5;
+  return { score, tonicHits };
+}
+
+function detectTonalCenterV4(bars) {
+  if (!bars || !bars.length) return null;
+  const closureData = cadenceClosureDetector(bars);
+  const allScores = [];
+  for (let root = 0; root < 12; root++) {
+    for (const isMajor of [true, false]) {
+      const { score, tonicHits } = scoreTonalCenterV4(bars, root, isMajor, closureData);
+      allScores.push({ rootIdx: root, isMajor, score, tonicHits });
+    }
+  }
+  allScores.sort((a, b) => b.score - a.score);
+  const best = allScores[0];
+  if (!best || best.score < 2) return null;
+  return { rootName: NOTES_FLAT[best.rootIdx], isMajor: best.isMajor, score: best.score };
+}
+
+function _labClassifyV4(prog) {
+  try {
+    const bars = parseInput(prog);
+    if (!bars.length) return { mode: 'error', key: null };
+    const tc = detectTonalCenterV4(bars);
+    if (!tc) return { mode: 'other', key: null };
+    return { mode: tc.isMajor ? 'major' : 'minor', key: tc.rootName };
+  } catch(e) {
+    return { mode: 'error', key: null };
+  }
+}
+
 // ── TONAL FILTER V2 ──────────────────────────────────────────────────────────
 // Clasificador de polaridad tonal: MAJOR / MINOR / AMBIGUOUS
 // Corre en paralelo con detectTonalCenter() — no lo reemplaza
@@ -5851,13 +6007,15 @@ function runLab() {
     const v2 = TonalFilterV2(item.prog);
     const v3 = _labClassifyV3(item.prog);
     const v3ok = v3.mode === item.expected.mode && (item.expected.key === null || v3.key === item.expected.key);
+    const v4 = _labClassifyV4(item.prog);
+    const v4ok = v4.mode === item.expected.mode && (item.expected.key === null || v4.key === item.expected.key);
     const ok = got.mode === item.expected.mode &&
       (item.expected.key === null || got.key === item.expected.key);
     // V2: comparar solo modo (MAJOR/MINOR/AMBIGUOUS vs major/minor/other)
     const expMode = item.expected.mode === 'other' ? 'ambiguous' : item.expected.mode;
     const v2ok = v2.mode === expMode;
     const agree = got.mode === v2.mode || (got.mode === 'other' && v2.mode === 'ambiguous');
-    return { ...item, got, v2, v3, ok, v2ok, v3ok, agree };
+    return { ...item, got, v2, v3, v4, ok, v2ok, v3ok, v4ok, agree };
   });
 
   const total = results.length;
@@ -5867,6 +6025,8 @@ function runLab() {
   const v2hits = results.filter(r => r.v2ok).length;
   const v3hits = results.filter(r => r.v3ok).length;
   const v3pct = ((v3hits / total) * 100).toFixed(1);
+  const v4hits = results.filter(r => r.v4ok).length;
+  const v4pct = ((v4hits / total) * 100).toFixed(1);
   const v2pct = ((v2hits / total) * 100).toFixed(1);
   const agreements = results.filter(r => r.agree).length;
   const agreePct = ((agreements / total) * 100).toFixed(1);
@@ -5901,6 +6061,13 @@ function runLab() {
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v3hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v3pct)>=80?'#4a9':parseFloat(v3pct)>=60?'#c8a44a':'#c84a4a'};">${v3pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
   html += `</div>`;
+  // V4
+  html += `<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">V4 (cadence closure)</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#4a9;">${v4hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Aciertos</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v4hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v4pct)>=80?'#4a9':parseFloat(v4pct)>=60?'#c8a44a':'#c84a4a'};">${v4pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
+  html += `</div>`;
   // Agreement rate
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;margin-bottom:16px;">`;
   html += `<div style="font-size:11px;color:#555;margin-bottom:4px;">Agreement rate (ambos sistemas coinciden)</div>`;
@@ -5910,13 +6077,15 @@ function runLab() {
   if (failures.length) {
     html += `<div style="margin-bottom:8px;font-size:11px;color:#c84a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Errores baseline (${failures.length})</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">`;
-    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th></tr>`;
+    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th><th style="padding:4px 8px;">V4</th></tr>`;
     failures.forEach(f => {
       const exp = f.expected.key ? `${f.expected.key} ${f.expected.mode}` : f.expected.mode;
       const got = f.got.key ? `${f.got.key} ${f.got.mode}` : f.got.mode;
       const v2r = f.v2.mode + (f.v2.confidence ? ' (' + (f.v2.confidence*100).toFixed(0) + '%)' : '');
       const v3r = f.v3.key ? f.v3.key + ' ' + f.v3.mode : f.v3.mode;
       const v3color = f.v3ok ? '#4a9' : '#c84a4a';
+      const v4r = f.v4.key ? f.v4.key + ' ' + f.v4.mode : f.v4.mode;
+      const v4color = f.v4ok ? '#4a9' : '#c84a4a';
       const v2color = f.v2ok ? '#4a9' : '#c84a4a';
       html += `<tr style="border-bottom:1px solid #1a1a1a;">`;
       html += `<td style="padding:6px 8px;color:#aaa;">${f.name}</td>`;
@@ -5924,6 +6093,7 @@ function runLab() {
       html += `<td style="padding:6px 8px;text-align:center;color:#c84a4a;">${got}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v2color};">${v2r}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v3color};">${v3r}</td>`;
+      html += `<td style="padding:6px 8px;text-align:center;color:${v4color};">${v4r}</td>`;
       html += `</tr>`;
     });
     html += `</table>`;
