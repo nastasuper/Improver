@@ -1,0 +1,17 @@
+# progresiones_ejemplo.txt
+# Una progresión por línea. Líneas con # son comentarios.
+
+# II-V-I Mayor en C
+Dm7 | G7 | Cmaj7 | Cmaj7
+
+# Autumn Leaves (fragmento)
+Am7 | D7 | Gmaj7 | Cmaj7 | F#m7b5 | B7 | Em7 | Em7
+
+# Blues en F
+F7 | Bb7 | F7 | F7 | Bb7 | Bb7 | F7 | D7 | Gm7 | C7 | F7 | C7
+
+# II-V-i Menor en D
+Em7b5 | A7 | Dm7 | Dm7
+
+# My Funny Valentine
+Cm | Cm7 | Cm6 | Cm | Fm7 | Fm6 | Dm7b5 G7 | Cm
