@@ -5901,6 +5901,97 @@ function _labClassifyV5(prog) {
   }
 }
 
+
+// ── DETECT TONAL CENTER V6 (experimento) ─────────────────────────────────────
+// Fusion layer: niveles de estructura tonal jerárquica
+// Nivel 1: evidencia fuerte → key específica
+// Nivel 2: evidencia parcial → solo polaridad (major/minor, sin key)
+// Nivel 3: sin estructura → null (floating center)
+
+function detectTonalCenterV6(bars) {
+  if (!bars || !bars.length) return null;
+
+  const allChords = [];
+  bars.forEach(bar => bar.chords.forEach(chord => allChords.push(chord)));
+
+  // ── Señal 1: Baseline — mejor candidato y su score normalizado ──
+  const baselineScores = [];
+  for (let root = 0; root < 12; root++) {
+    for (const isMajor of [true, false]) {
+      const { score } = scoreTonalCenter(bars, root, isMajor);
+      baselineScores.push({ rootIdx: root, isMajor, score });
+    }
+  }
+  baselineScores.sort((a, b) => b.score - a.score);
+  const best = baselineScores[0];
+  const second = baselineScores[1];
+  const maxScore = best.score || 1;
+  const baselineMargin = (best.score - second.score) / maxScore;
+  const baselineStrong = baselineMargin > 0.15 && best.score >= 4;
+
+  // ── Señal 2: Closure ──
+  const closure = cadenceClosureDetector(bars);
+  const closureStrong = closure.hasClosure &&
+    closure.structuralRoot === best.rootIdx &&
+    closure.maxClosures >= 2;
+
+  // ── Señal 3: Polaridad V2 ──
+  const progStr = allChords.map(c => c.raw).join(' | ');
+  const v2 = TonalFilterV2(progStr);
+  const hasAmbiguity = v2.mode === 'ambiguous';
+  const polarityConfident = v2.confidence > 0.25;
+
+  // ── DECISION ENGINE ──────────────────────────────────────────────────────
+  // NIVEL 1: Evidencia estructural fuerte
+  // baseline fuerte + closure confirma → key específica
+  if (baselineStrong && closureStrong && !hasAmbiguity) {
+    return {
+      level: 1,
+      rootName: NOTES_FLAT[best.rootIdx],
+      isMajor: best.isMajor,
+      confidence: 'high',
+    };
+  }
+
+  // NIVEL 1b: baseline muy fuerte aunque sin closure explícito
+  // (progresiones cortas con tónica estable repetida)
+  if (baselineMargin > 0.30 && best.score >= 6 && !hasAmbiguity) {
+    return {
+      level: 1,
+      rootName: NOTES_FLAT[best.rootIdx],
+      isMajor: best.isMajor,
+      confidence: 'medium',
+    };
+  }
+
+  // NIVEL 2: Evidencia parcial — polaridad presente pero señales mixtas
+  // Conocemos mayor/menor pero no podemos afirmar key específica
+  if (!hasAmbiguity && polarityConfident) {
+    return {
+      level: 2,
+      rootName: null, // no sabemos la key específica
+      isMajor: v2.mode === 'major',
+      confidence: 'low',
+    };
+  }
+
+  // NIVEL 3: Sin estructura tonal estable → floating center
+  return null;
+}
+
+function _labClassifyV6(prog) {
+  try {
+    const bars = parseInput(prog);
+    if (!bars.length) return { mode: 'error', key: null, level: 0 };
+    const tc = detectTonalCenterV6(bars);
+    if (!tc) return { mode: 'other', key: null, level: 3 };
+    if (tc.level === 2) return { mode: tc.isMajor ? 'major' : 'minor', key: null, level: 2 };
+    return { mode: tc.isMajor ? 'major' : 'minor', key: tc.rootName, level: 1 };
+  } catch(e) {
+    return { mode: 'error', key: null, level: 0 };
+  }
+}
+
 // ── TONAL FILTER V2 ──────────────────────────────────────────────────────────
 // Clasificador de polaridad tonal: MAJOR / MINOR / AMBIGUOUS
 // Corre en paralelo con detectTonalCenter() — no lo reemplaza
@@ -6108,13 +6199,16 @@ function runLab() {
     const v4ok = v4.mode === item.expected.mode && (item.expected.key === null || v4.key === item.expected.key);
     const v5 = _labClassifyV5(item.prog);
     const v5ok = v5.mode === item.expected.mode && (item.expected.key === null || v5.key === item.expected.key);
+    const v6 = _labClassifyV6(item.prog);
+    // V6: correcto si modo coincide Y (key esperada null O key coincide O nivel 2 con modo correcto)
+    const v6ok = v6.mode === item.expected.mode && (item.expected.key === null || v6.key === item.expected.key || v6.level === 2);
     const ok = got.mode === item.expected.mode &&
       (item.expected.key === null || got.key === item.expected.key);
     // V2: comparar solo modo (MAJOR/MINOR/AMBIGUOUS vs major/minor/other)
     const expMode = item.expected.mode === 'other' ? 'ambiguous' : item.expected.mode;
     const v2ok = v2.mode === expMode;
     const agree = got.mode === v2.mode || (got.mode === 'other' && v2.mode === 'ambiguous');
-    return { ...item, got, v2, v3, v4, v5, ok, v2ok, v3ok, v4ok, v5ok, agree };
+    return { ...item, got, v2, v3, v4, v5, v6, ok, v2ok, v3ok, v4ok, v5ok, v6ok, agree };
   });
 
   const total = results.length;
@@ -6128,6 +6222,11 @@ function runLab() {
   const v4pct = ((v4hits / total) * 100).toFixed(1);
   const v5hits = results.filter(r => r.v5ok).length;
   const v5pct = ((v5hits / total) * 100).toFixed(1);
+  const v6hits = results.filter(r => r.v6ok).length;
+  const v6pct = ((v6hits / total) * 100).toFixed(1);
+  const v6l1 = results.filter(r => r.v6.level === 1).length;
+  const v6l2 = results.filter(r => r.v6.level === 2).length;
+  const v6l3 = results.filter(r => r.v6.level === 3).length;
   const v2pct = ((v2hits / total) * 100).toFixed(1);
   const agreements = results.filter(r => r.agree).length;
   const agreePct = ((agreements / total) * 100).toFixed(1);
@@ -6176,6 +6275,18 @@ function runLab() {
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v5hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v5pct)>=80?'#4a9':parseFloat(v5pct)>=60?'#c8a44a':'#c84a4a'};">${v5pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
   html += `</div>`;
+  // V6
+  html += `<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">V6 (fusion layer — niveles de estructura tonal)</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#4a9;">${v6hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Aciertos</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#c84a4a;">${total-v6hits}</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Errores</div></div>`;
+  html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;"><div style="font-size:22px;font-weight:700;color:${parseFloat(v6pct)>=80?'#4a9':parseFloat(v6pct)>=60?'#c8a44a':'#c84a4a'};">${v6pct}%</div><div style="color:#555;font-size:9px;text-transform:uppercase;margin-top:2px;">Precisión</div></div>`;
+  html += `</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;font-size:10px;">`;
+  html += `<div style="background:#0a0a14;padding:6px;border-radius:4px;text-align:center;color:#4a8cc8;">Nivel 1 (key): ${v6l1}</div>`;
+  html += `<div style="background:#0a0a14;padding:6px;border-radius:4px;text-align:center;color:#c8a44a;">Nivel 2 (pol): ${v6l2}</div>`;
+  html += `<div style="background:#0a0a14;padding:6px;border-radius:4px;text-align:center;color:#555;">Nivel 3 (null): ${v6l3}</div>`;
+  html += `</div>`;
   // Agreement rate
   html += `<div style="background:#111;padding:10px;border-radius:4px;text-align:center;margin-bottom:16px;">`;
   html += `<div style="font-size:11px;color:#555;margin-bottom:4px;">Agreement rate (ambos sistemas coinciden)</div>`;
@@ -6185,7 +6296,7 @@ function runLab() {
   if (failures.length) {
     html += `<div style="margin-bottom:8px;font-size:11px;color:#c84a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Errores baseline (${failures.length})</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">`;
-    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th><th style="padding:4px 8px;">V4</th><th style="padding:4px 8px;">V5</th></tr>`;
+    html += `<tr style="color:#555;border-bottom:1px solid #222;"><th style="text-align:left;padding:4px 8px;">Progresión</th><th style="padding:4px 8px;">Esperado</th><th style="padding:4px 8px;">Baseline</th><th style="padding:4px 8px;">V2</th><th style="padding:4px 8px;">V3</th><th style="padding:4px 8px;">V4</th><th style="padding:4px 8px;">V5</th><th style="padding:4px 8px;">V6</th></tr>`;
     failures.forEach(f => {
       const exp = f.expected.key ? `${f.expected.key} ${f.expected.mode}` : f.expected.mode;
       const got = f.got.key ? `${f.got.key} ${f.got.mode}` : f.got.mode;
@@ -6196,6 +6307,8 @@ function runLab() {
       const v4color = f.v4ok ? '#4a9' : '#c84a4a';
       const v5r = f.v5.key ? f.v5.key + ' ' + f.v5.mode : f.v5.mode;
       const v5color = f.v5ok ? '#4a9' : '#c84a4a';
+      const v6r = (f.v6.key ? f.v6.key + ' ' : '') + f.v6.mode + ' [L' + f.v6.level + ']';
+      const v6color = f.v6ok ? '#4a9' : '#c84a4a';
       const v2color = f.v2ok ? '#4a9' : '#c84a4a';
       html += `<tr style="border-bottom:1px solid #1a1a1a;">`;
       html += `<td style="padding:6px 8px;color:#aaa;">${f.name}</td>`;
@@ -6205,6 +6318,7 @@ function runLab() {
       html += `<td style="padding:6px 8px;text-align:center;color:${v3color};">${v3r}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v4color};">${v4r}</td>`;
       html += `<td style="padding:6px 8px;text-align:center;color:${v5color};">${v5r}</td>`;
+      html += `<td style="padding:6px 8px;text-align:center;color:${v6color};font-size:10px;">${v6r}</td>`;
       html += `</tr>`;
     });
     html += `</table>`;
